@@ -1,3 +1,14 @@
+/**
+ * @file core_optional.hh
+ * @author Bartosz ksel (275472@student.pwr.edu.pl)
+ * @brief Extension of std::optional capable of storing optional references.
+ * @version 0.1
+ * @date 2026-05-16
+ *
+ * @copyright Copyright (c) 2026
+ *
+ */
+
 #pragma once
 
 #include <memory>
