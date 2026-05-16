@@ -2,9 +2,10 @@
 
 #include "common_defs.hh"
 
-int main() {
+int main()
+{
 
-  std::cout << "Author: " << aiml::author << "\n";
+    std::cout << "Author: " << aiml::author << "\n";
 
-  return 0;
+    return 0;
 }

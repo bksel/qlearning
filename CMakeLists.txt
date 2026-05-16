@@ -13,14 +13,14 @@ target_sources(mdp_program PRIVATE
 )
 
 # Include directories (e.g., if you have an 'include' folder)
-target_include_directories(mdp_program PRIVATE "inc")
+target_include_directories(mdp_program PRIVATE "inc" "include")
 
 add_executable(qlearning_program)
 target_sources(qlearning_program PRIVATE
     src/qlearning_main.cpp
 )
 
-target_include_directories(qlearning_program PRIVATE "inc")
+target_include_directories(qlearning_program PRIVATE "inc" "include")
 
 
 # Compiler-specific warning flags

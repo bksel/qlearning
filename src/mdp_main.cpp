@@ -2,9 +2,12 @@
 
 #include "common_defs.hh"
 
-int main() {
+#include "mdp_parser.hh"
 
-  std::cout << "Author: " << aiml::author << "\n";
+int main()
+{
 
-  return 0;
+    std::cout << "Author: " << aiml::author << "\n";
+
+    return 0;
 }
