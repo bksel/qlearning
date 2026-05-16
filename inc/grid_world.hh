@@ -46,7 +46,7 @@ private:
     std::vector<State> grid; // Flattened 1D vector for optimal cache locality
 
     // Converts 1-based bottom-left coordinates to 1D vector index
-    core::optional<std::size_t> toInternalIndex(int x, int y) const
+    core::optional<std::size_t> toInternalIndex(int x, int y) const noexcept
     {
         if (x < 1 || x > width || y < 1 || y > height) {
             return core::nullopt;
@@ -62,7 +62,7 @@ public:
     {
     }
 
-    core::optional<State&> getState(int x, int y)
+    core::optional<State&> getState(int x, int y) noexcept
     {
         if (auto idx = toInternalIndex(x, y)) {
             return grid[*idx];
