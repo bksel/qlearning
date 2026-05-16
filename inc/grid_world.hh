@@ -14,6 +14,7 @@
 #include <utility>
 #include <vector>
 
+
 #include "core_optional.hh"
 
 // Represents the different types of states in the grid
