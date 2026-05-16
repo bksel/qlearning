@@ -9,7 +9,6 @@
  *
  */
 
-
 #include <iomanip>
 #include <iostream>
 
@@ -94,18 +93,25 @@ int main(int argc, char** argv)
     MDPConfig config = world.getConfig();
 
     // Override with command-line arguments if provided
-    if (argc >= 3)
+    if (argc >= 3) {
         config.gamma = std::stod(argv[2]);
-    if (argc >= 4)
+    }
+    if (argc >= 4) {
         config.epsilon = std::stod(argv[3]);
-
+    }
     // Ensure gamma is set (fallback to 1.0 if missing entirely)
-    if (!config.gamma.has_value())
+    if (!config.gamma.has_value()) {
         config.gamma = 1.0;
-
+    }
     world.setConfig(config); // Save updated config
 
-    uint iteration = mdp::calculate_policies(world, config);
+    std::ofstream gnuplot_file("convergence.dat");
+    if (!gnuplot_file.is_open()) {
+        std::cerr << "Warning: Could not open convergence.dat for writing.\n";
+    }
+
+    uint iteration =
+        mdp::calculate_policies(world, config, gnuplot_file.is_open() ? &gnuplot_file : nullptr);
 
     std::cout << "Value Iteration converged in " << iteration << " iterations.\n";
 

@@ -13,6 +13,7 @@
 
 #include <cmath>
 #include <limits>
+#include <ostream>
 
 #include "common_defs.hh"
 #include "grid_world.hh"
@@ -60,16 +61,14 @@ inline double calculate_expected_utility(const GridWorld& world, int x, int y, E
  *
  * @param world
  * @param config
+ * @param log_stream Optional output stream for logging convergence data (iteration vs delta)
  * @return uint -- number of iterations performed until convergence
  */
-inline uint calculate_policies(GridWorld& world, const MDPConfig& config)
+inline uint calculate_policies(GridWorld& world, const MDPConfig& config, std::ostream* log_stream = nullptr)
 {
     // 2. Value Iteration
     double delta;
     uint iteration = 0;
-
-    // TODO: Open file for Gnuplot here (e.g. std::ofstream gnuplot_file("convergence.dat");)
-    // even better, pass stream to it
 
     do {
         delta = 0.0;
@@ -82,7 +81,7 @@ inline uint calculate_policies(GridWorld& world, const MDPConfig& config)
                     state->type == StateType::Terminal)
                     continue; // Skip walls and terminals
 
-                auto max_val = std::numeric_limits<double>::min();
+                auto max_val = std::numeric_limits<double>::lowest();
                 char best_action = '*';
 
                 for (EAction a : {EAction::Up, EAction::Down, EAction::Left, EAction::Right}) {
@@ -103,7 +102,10 @@ inline uint calculate_policies(GridWorld& world, const MDPConfig& config)
         world = next_world;
         iteration++;
 
-        // TODO: Write to gnuplot file -> gnuplot_file << iteration << " " << delta << "\n";
+        // Write to stream if provided
+        if (log_stream) {
+            *log_stream << iteration << " " << delta << "\n";
+        }
 
     } while (delta >= 0.0001);
 

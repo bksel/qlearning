@@ -31,10 +31,10 @@ ReferenceAlignment: Pointer
 # --- Braces & Blocks ---
 BreakBeforeBraces: WebKit
 AllowShortBlocksOnASingleLine: Empty
-AllowShortCaseLabelsOnASingleLine: false
-AllowShortFunctionsOnASingleLine: Empty
-AllowShortIfStatementsOnASingleLine: Never
-AllowShortLoopsOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortFunctionsOnASingleLine: true
+AllowShortIfStatementsOnASingleLine: true
+AllowShortLoopsOnASingleLine: true
 BreakAfterReturnType: ExceptShortType
 
 # --- Constructor Initializers ---
