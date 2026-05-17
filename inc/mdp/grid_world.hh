@@ -14,8 +14,9 @@
 #include <utility>
 #include <vector>
 
-
 #include "core_optional.hh"
+
+namespace mdp {
 
 // Represents the different types of states in the grid
 enum class StateType { Normal, Start, Terminal, Special, Forbidden };
@@ -79,20 +80,10 @@ public:
         return core::nullopt;
     }
 
-    int getWidth() const
-    {
-        return width;
-    }
-    int getHeight() const
-    {
-        return height;
-    }
-    MDPConfig getConfig() const
-    {
-        return config;
-    }
-    void setConfig(const MDPConfig& cfg)
-    {
-        config = cfg;
-    }
+    int getWidth() const { return width; }
+    int getHeight() const { return height; }
+    MDPConfig getConfig() const { return config; }
+    void setConfig(const MDPConfig& cfg) { config = cfg; }
 };
+
+} // namespace mdp

@@ -18,6 +18,8 @@
 #include "core_optional.hh"
 #include "grid_world.hh"
 
+namespace mdp {
+
 class MDPParser {
 public:
     static core::optional<GridWorld> parseFile(const std::string& filename)
@@ -52,10 +54,8 @@ public:
         while (std::getline(file, line)) {
             std::istringstream iss(line);
             std::string label;
-            if (!(iss >> label))
-                continue;
-            if (label == "W")
-                continue;
+            if (!(iss >> label)) continue;
+            if (label == "W") continue;
 
             if (label == "S") {
                 int x, y;
@@ -114,3 +114,5 @@ public:
         return world;
     }
 };
+
+} // namespace mdp

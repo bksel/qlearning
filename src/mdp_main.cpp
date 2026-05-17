@@ -12,12 +12,12 @@
 #include <iomanip>
 #include <iostream>
 
-#include "common_defs.hh"
-#include "mdp_algo.hh"
-#include "mdp_parser.hh"
+#include "mdp/common_defs.hh"
+#include "mdp/mdp_algo.hh"
+#include "mdp/mdp_parser.hh"
 
 // Helper to print the optimal policy in a grid
-void print_policy(const GridWorld& world)
+void print_policy(const mdp::GridWorld& world)
 {
     auto config = world.getConfig();
     std::cout << "\nPolicy:\n";
@@ -32,9 +32,9 @@ void print_policy(const GridWorld& world)
         std::cout << hline << "\n|";
         for (int x = 1; x <= config.width; ++x) {
             auto state = world.getState(x, y);
-            if (state->type == StateType::Forbidden)
+            if (state->type == mdp::StateType::Forbidden)
                 std::cout << " F |";
-            else if (state->type == StateType::Terminal)
+            else if (state->type == mdp::StateType::Terminal)
                 std::cout << " T |";
             else
                 std::cout << " " << state->policy << " |";
@@ -44,8 +44,7 @@ void print_policy(const GridWorld& world)
     std::cout << hline << "\n";
 }
 
-// Helper to print state utilities in a wider grid
-void print_utilities(const GridWorld& world)
+void print_utilities(const mdp::GridWorld& world)
 {
     auto config = world.getConfig();
     std::cout << "\nUtilities:\n";
@@ -61,7 +60,7 @@ void print_utilities(const GridWorld& world)
         std::cout << hline << "\n|";
         for (int x = 1; x <= config.width; ++x) {
             auto state = world.getState(x, y);
-            if (state->type == StateType::Forbidden)
+            if (state->type == mdp::StateType::Forbidden)
                 std::cout << "    F     |";
             else
                 std::cout << " " << std::setw(8) << state->utility << " |";
@@ -83,14 +82,14 @@ int main(int argc, char** argv)
     std::string filename = argv[1];
 
     // 1. Parse file
-    auto world_opt = MDPParser::parseFile(filename);
+    auto world_opt = mdp::MDPParser::parseFile(filename);
     if (!world_opt) {
         std::cerr << "Failed to parse MDP configuration from " << filename << "\n";
         return 1;
     }
 
-    GridWorld world = *world_opt;
-    MDPConfig config = world.getConfig();
+    mdp::GridWorld world = *world_opt;
+    mdp::MDPConfig config = world.getConfig();
 
     // Override with command-line arguments if provided
     if (argc >= 3) {
