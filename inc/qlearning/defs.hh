@@ -15,10 +15,10 @@ namespace ql {
 
 enum class EAction { Up, Down, Left, Right };
 
-enum class StateType { Normal, Start, Terminal, Special, Forbidden };
+enum class EState { Normal, Start, Terminal, Special, Forbidden };
 
 struct FastState {
-    StateType type = StateType::Normal;
+    EState type = EState::Normal;
     double reward = 0.0;
 };
 

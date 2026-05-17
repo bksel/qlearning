@@ -31,7 +31,7 @@ public:
       , p3(p3)
     {
         // Initialize padded grid (raw_width + 2) x (raw_height + 2)
-        grid.assign(padded_width * (raw_height + 2), {StateType::Forbidden, 0.0});
+        grid.assign(padded_width * (raw_height + 2), {EState::Forbidden, 0.0});
 
         // TODO: Fill the inner playable area with your actual parsed file data!
         // grid[y * padded_width + x] = parsed_state;
@@ -52,12 +52,12 @@ public:
         const auto& next_state = grid[ny * padded_width + nx];
 
         // 4. Ghost cell / Wall collision
-        if (next_state.type == StateType::Forbidden) {
+        if (next_state.type == EState::Forbidden) {
             const auto& current_state = grid[curr_y * padded_width + curr_x];
             return {curr_x, curr_y, current_state.reward, false};
         }
 
-        return {nx, ny, next_state.reward, next_state.type == StateType::Terminal};
+        return {nx, ny, next_state.reward, next_state.type == EState::Terminal};
     }
 };
 } // namespace qlearning

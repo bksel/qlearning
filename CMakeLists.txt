@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.15)
 project(AIML_project4 VERSION 1.0.0 LANGUAGES CXX)
 
+# Print the detected compilers
+message(STATUS "C compiler: ${CMAKE_C_COMPILER}")
+message(STATUS "C++ compiler: ${CMAKE_CXX_COMPILER} (${CMAKE_CXX_COMPILER_ID})")
+
 # Set the C++ standard globally for targets
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -28,3 +32,5 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
     target_compile_options(mdp_program PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(qlearning_program PRIVATE -Wall -Wextra -Wpedantic)
 endif()
+
+
