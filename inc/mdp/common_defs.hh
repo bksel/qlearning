@@ -23,7 +23,8 @@ namespace mdp {
 enum class EAction { Up, Down, Left, Right };
 
 // Convert action to required character representation
-inline char action_to_char(EAction a)
+inline char
+action_to_char(EAction a)
 {
     switch (a) {
     case EAction::Up: return '^';
@@ -35,7 +36,10 @@ inline char action_to_char(EAction a)
 }
 
 // Helper to get movement deltas
-inline std::pair<int, int> get_dir(EAction a)
+inline std::pair<
+  int,
+  int>
+get_dir(EAction a)
 {
     switch (a) {
     case EAction::Up: return {0, 1};
@@ -47,7 +51,8 @@ inline std::pair<int, int> get_dir(EAction a)
 }
 
 // Relative direction mappings based on intended action
-inline EAction get_left_action(EAction a)
+inline EAction
+get_left_action(EAction a)
 {
     switch (a) {
     case EAction::Up: return EAction::Left;
@@ -58,7 +63,8 @@ inline EAction get_left_action(EAction a)
     return EAction::Up;
 }
 
-inline EAction get_right_action(EAction a)
+inline EAction
+get_right_action(EAction a)
 {
     switch (a) {
     case EAction::Up: return EAction::Right;
@@ -69,7 +75,8 @@ inline EAction get_right_action(EAction a)
     return EAction::Up;
 }
 
-inline EAction get_opposite_action(EAction a)
+inline EAction
+get_opposite_action(EAction a)
 {
     switch (a) {
     case EAction::Up: return EAction::Down;

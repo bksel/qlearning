@@ -10,7 +10,6 @@
  */
 
 #include <cstddef>
-#include <random>
 #include <span>
 #include <vector>
 
@@ -26,10 +25,13 @@ struct BatchMemory {
     std::vector<std::size_t> N_table;
 };
 
-inline BatchMemory run_batch(const Simulator& sim,
-                             const BatchConfig& config,
-                             const BatchMemory& starting_knowledge,
-                             uint64_t thread_seed)
+inline BatchMemory
+run_batch(
+  const Simulator& sim,
+  const BatchConfig& config,
+  const BatchMemory& starting_knowledge,
+  uint64_t thread_seed
+)
 {
     BatchMemory mem = starting_knowledge;
     FastRNG rng(thread_seed);

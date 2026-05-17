@@ -13,7 +13,7 @@ UseTab: Never
 # --- Indentation & Spacing ---
 AccessModifierOffset: -4
 NamespaceIndentation: None
-ContinuationIndentWidth: 4
+ContinuationIndentWidth: 2
 
 # --- Alignment ---
 # Consecutive alignments set to false to avoid massive Git diffs
@@ -29,13 +29,13 @@ PointerAlignment: Left
 ReferenceAlignment: Pointer
 
 # --- Braces & Blocks ---
+AllowAllArgumentsOnNextLine: false
 BreakBeforeBraces: WebKit
 AllowShortBlocksOnASingleLine: Empty
 AllowShortCaseLabelsOnASingleLine: true
 AllowShortFunctionsOnASingleLine: true
 AllowShortIfStatementsOnASingleLine: true
 AllowShortLoopsOnASingleLine: true
-BreakAfterReturnType: ExceptShortType
 
 # --- Constructor Initializers ---
 PackConstructorInitializers: Never
@@ -47,11 +47,14 @@ RequiresClausePosition: OwnLine
 RequiresExpressionIndentation: Keyword
 
 # --- Line Breaks ---
+BreakAfterReturnType: All
 AlwaysBreakTemplateDeclarations: Yes
-BinPackArguments: true
-BinPackParameters: false
-PenaltyBreakBeforeFirstCallParameter: 100
-PenaltyReturnTypeOnItsOwnLine: 100
+BinPackArguments: false
+PenaltyReturnTypeOnItsOwnLine: 0
+
+AlignAfterOpenBracket: BlockIndent
+BinPackParameters: AlwaysOnePerLine
+PenaltyBreakBeforeFirstCallParameter: 0  # <-- Lowered to 0 to remove the penalty for breaking early
 
 # --- Miscellaneous ---
 MaxEmptyLinesToKeep: 1

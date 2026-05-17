@@ -28,7 +28,13 @@ private:
     std::size_t padded_width;
     double p1, p2, p3;
 
-    Simulator(int raw_width, int raw_height, double p1, double p2, double p3)
+    Simulator(
+      int raw_width,
+      int raw_height,
+      double p1,
+      double p2,
+      double p3
+    )
       : padded_width(raw_width + 2)
       , p1(p1)
       , p2(p2)
@@ -39,7 +45,8 @@ private:
     }
 
 public:
-    static core::optional<Simulator> from_gridworld(const mdp::GridWorld& world)
+    static core::optional<Simulator>
+    from_gridworld(const mdp::GridWorld& world)
     {
         auto config = world.getConfig();
         if (config.width <= 0 || config.height <= 0) {
@@ -69,10 +76,13 @@ public:
     }
 
     // Notice: NO bounds checking needed because of the Forbidden padding!
-    StepResult execute_action(std::size_t curr_x,
-                              std::size_t curr_y,
-                              EAction action,
-                              FastRNG& rng) const noexcept
+    StepResult
+    execute_action(
+      std::size_t curr_x,
+      std::size_t curr_y,
+      EAction action,
+      FastRNG& rng
+    ) const noexcept
     {
         // 1. Roll rng and determine actual stochastic movement direction
         double roll = rng.next_double();

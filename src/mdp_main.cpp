@@ -16,7 +16,11 @@
 #include "mdp/mdp_parser.hh"
 #include "mdp/visualiser.hh"
 
-int main(int argc, char** argv)
+int
+main(
+  int argc,
+  char** argv
+)
 {
     std::cout << "Author: " << aiml::author << "\n";
 
@@ -56,7 +60,7 @@ int main(int argc, char** argv)
     }
 
     uint iteration =
-        mdp::calculate_policies(world, config, gnuplot_file.is_open() ? &gnuplot_file : nullptr);
+      mdp::calculate_policies(world, config, gnuplot_file.is_open() ? &gnuplot_file : nullptr);
 
     std::cout << "Value Iteration converged in " << iteration << " iterations.\n";
 

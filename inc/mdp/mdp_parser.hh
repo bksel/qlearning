@@ -22,7 +22,8 @@ namespace mdp {
 
 class MDPParser {
 public:
-    static core::optional<GridWorld> parseFile(const std::string& filename)
+    static core::optional<GridWorld>
+    parseFile(const std::string& filename)
     {
         std::ifstream file(filename);
         if (!file.is_open()) {

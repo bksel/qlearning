@@ -21,9 +21,16 @@ namespace core {
 template <typename T>
 class optional {
     // --- TYPE TRAITS CHECKS ---
-    static_assert(!std::is_reference_v<T>,
-                  "core::optional primary template cannot hold references. Check for T&&.");
-    static_assert(!std::is_same_v<std::remove_cv_t<T>, void>, "core::optional cannot hold void.");
+    static_assert(
+      !std::is_reference_v<T>,
+      "core::optional primary template cannot hold references. Check for T&&."
+    );
+    static_assert(
+      !std::is_same_v<
+        std::remove_cv_t<T>,
+        void>,
+      "core::optional cannot hold void."
+    );
 
 private:
     std::optional<T> storage_;
@@ -40,43 +47,52 @@ public:
     {
     }
 
-    constexpr bool has_value() const noexcept
+    constexpr bool
+    has_value() const noexcept
     {
         return storage_.has_value();
     }
-    constexpr explicit operator bool() const noexcept
+    constexpr explicit
+    operator bool() const noexcept
     {
         return has_value();
     }
 
-    constexpr T& operator*()
+    constexpr T&
+    operator*()
     {
         return *storage_;
     }
-    constexpr const T& operator*() const
+    constexpr const T&
+    operator*() const
     {
         return *storage_;
     }
-    constexpr T* operator->()
+    constexpr T*
+    operator->()
     {
         return &(*storage_);
     }
-    constexpr const T* operator->() const
+    constexpr const T*
+    operator->() const
     {
         return &(*storage_);
     }
 
-    constexpr T& value()
+    constexpr T&
+    value()
     {
         return storage_.value();
     }
-    constexpr const T& value() const
+    constexpr const T&
+    value() const
     {
         return storage_.value();
     }
 
     template <typename U>
-    constexpr T value_or(U&& default_value) const
+    constexpr T
+    value_or(U&& default_value) const
     {
         return storage_.value_or(std::forward<U>(default_value));
     }
@@ -86,8 +102,10 @@ public:
 template <typename T>
 class optional<T&> {
     // --- TYPE TRAITS CHECKS ---
-    static_assert(!std::is_reference_v<T>,
-                  "Forming a reference-to-reference is invalid in core::optional.");
+    static_assert(
+      !std::is_reference_v<T>,
+      "Forming a reference-to-reference is invalid in core::optional."
+    );
 
 private:
     T* ptr_ = nullptr;
@@ -107,52 +125,61 @@ public:
     // Prevent dangling references from temporary construction
     optional(T&&) = delete;
 
-    constexpr optional& operator=(std::nullopt_t) noexcept
+    constexpr optional&
+    operator=(std::nullopt_t) noexcept
     {
         ptr_ = nullptr;
         return *this;
     }
 
-    constexpr optional& operator=(T& ref) noexcept
+    constexpr optional&
+    operator=(T& ref) noexcept
     {
         ptr_ = std::addressof(ref);
         return *this;
     }
 
     // --- CRITICAL FIX: Prevent dangling references from temporary assignment ---
-    optional& operator=(T&&) = delete;
+    optional&
+    operator=(T&&) = delete;
 
-    constexpr bool has_value() const noexcept
+    constexpr bool
+    has_value() const noexcept
     {
         return ptr_ != nullptr;
     }
-    constexpr explicit operator bool() const noexcept
+    constexpr explicit
+    operator bool() const noexcept
     {
         return has_value();
     }
 
-    constexpr T& operator*() const
+    constexpr T&
+    operator*() const
     {
         return *ptr_;
     }
-    constexpr T* operator->() const
+    constexpr T*
+    operator->() const
     {
         return ptr_;
     }
 
-    constexpr T& value() const
+    constexpr T&
+    value() const
     {
-        if (!ptr_)
-            throw std::bad_optional_access{};
+        if (!ptr_) throw std::bad_optional_access{};
         return *ptr_;
     }
 
-    constexpr T& value_or(T& default_value) const noexcept
+    constexpr T&
+    value_or(T& default_value) const noexcept
     {
         return ptr_ ? *ptr_ : default_value;
     }
 
-    constexpr void reset() noexcept
+    constexpr void
+    reset() noexcept
     {
         ptr_ = nullptr;
     }

@@ -36,7 +36,11 @@ struct RuntimeConfig {
     }
 
 private:
-    static std::size_t parse_env_size(const char* env_var, std::size_t default_val)
+    static std::size_t
+    parse_env_size(
+      const char* env_var,
+      std::size_t default_val
+    )
     {
         if (const char* env_str = std::getenv(env_var)) {
             try {

@@ -21,7 +21,13 @@
 namespace mdp {
 
 // Calculates the expected utility for a specific action taking uncertainty into account
-inline double calculate_expected_utility(const GridWorld& world, int x, int y, EAction action)
+inline double
+calculate_expected_utility(
+  const GridWorld& world,
+  int x,
+  int y,
+  EAction action
+)
 {
     auto config = world.getConfig();
     double p1 = config.p1;
@@ -64,7 +70,12 @@ inline double calculate_expected_utility(const GridWorld& world, int x, int y, E
  * @param log_stream Optional output stream for logging convergence data (iteration vs delta)
  * @return uint -- number of iterations performed until convergence
  */
-inline uint calculate_policies(GridWorld& world, const MDPConfig& config, std::ostream* log_stream = nullptr)
+inline uint
+calculate_policies(
+  GridWorld& world,
+  const MDPConfig& config,
+  std::ostream* log_stream = nullptr
+)
 {
     // 2. Value Iteration
     double delta;
@@ -77,8 +88,7 @@ inline uint calculate_policies(GridWorld& world, const MDPConfig& config, std::o
         for (int y = 1; y <= config.height; ++y) {
             for (int x = 1; x <= config.width; ++x) {
                 auto state = world.getState(x, y);
-                if (!state || state->type == EState::Forbidden ||
-                    state->type == EState::Terminal)
+                if (!state || state->type == EState::Forbidden || state->type == EState::Terminal)
                     continue; // Skip walls and terminals
 
                 auto max_val = std::numeric_limits<double>::lowest();

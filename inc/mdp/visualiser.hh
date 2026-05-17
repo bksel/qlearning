@@ -19,7 +19,8 @@
 namespace mdp {
 
 // Helper to print the optimal policy in a grid
-inline void print_policy(const mdp::GridWorld& world)
+inline void
+print_policy(const mdp::GridWorld& world)
 {
     auto config = world.getConfig();
     std::cout << "\nPolicy:\n";
@@ -46,7 +47,8 @@ inline void print_policy(const mdp::GridWorld& world)
     std::cout << hline << "\n";
 }
 
-inline void print_utilities(const mdp::GridWorld& world)
+inline void
+print_utilities(const mdp::GridWorld& world)
 {
     auto config = world.getConfig();
     std::cout << "\nUtilities:\n";

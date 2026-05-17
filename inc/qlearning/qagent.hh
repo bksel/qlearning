@@ -24,13 +24,24 @@ private:
     std::size_t padded_width;
     double gamma, epsilon;
 
-    inline std::size_t q_idx(std::size_t x, std::size_t y, EAction a) const noexcept
+    inline std::size_t
+    q_idx(
+      std::size_t x,
+      std::size_t y,
+      EAction a
+    ) const noexcept
     {
         return ((y * padded_width + x) * 4) + static_cast<std::size_t>(a);
     }
 
 public:
-    QAgent(std::span<double> q, std::span<std::size_t> n, std::size_t w, double g, double e)
+    QAgent(
+      std::span<double> q,
+      std::span<std::size_t> n,
+      std::size_t w,
+      double g,
+      double e
+    )
       : Q(q)
       , N(n)
       , padded_width(w)
@@ -39,7 +50,12 @@ public:
     {
     }
 
-    EAction choose_action(std::size_t x, std::size_t y, FastRNG& rng) const noexcept
+    EAction
+    choose_action(
+      std::size_t x,
+      std::size_t y,
+      FastRNG& rng
+    ) const noexcept
     {
         // Epsilon-Greedy selection
         if (rng.next_double() < epsilon) {
@@ -60,10 +76,13 @@ public:
         return best_action;
     }
 
-    void learn(std::size_t curr_x,
-               std::size_t curr_y,
-               EAction action,
-               const StepResult& result) noexcept
+    void
+    learn(
+      std::size_t curr_x,
+      std::size_t curr_y,
+      EAction action,
+      const StepResult& result
+    ) noexcept
     {
         std::size_t idx = q_idx(curr_x, curr_y, action);
 

@@ -48,7 +48,11 @@ private:
     std::vector<State> grid; // Flattened 1D vector for optimal cache locality
 
     // Converts 1-based bottom-left coordinates to 1D vector index
-    core::optional<std::size_t> toInternalIndex(int x, int y) const noexcept
+    core::optional<std::size_t>
+    toInternalIndex(
+      int x,
+      int y
+    ) const noexcept
     {
         if (x < 1 || x > width || y < 1 || y > height) {
             return core::nullopt;
@@ -57,14 +61,21 @@ private:
     }
 
 public:
-    GridWorld(int w, int h)
+    GridWorld(
+      int w,
+      int h
+    )
       : width(w)
       , height(h)
       , grid(w * h)
     {
     }
 
-    core::optional<State&> getState(int x, int y) noexcept
+    core::optional<State&>
+    getState(
+      int x,
+      int y
+    ) noexcept
     {
         if (auto idx = toInternalIndex(x, y)) {
             return grid[*idx];
@@ -72,7 +83,11 @@ public:
         return core::nullopt;
     }
 
-    core::optional<const State&> getState(int x, int y) const
+    core::optional<const State&>
+    getState(
+      int x,
+      int y
+    ) const
     {
         if (auto idx = toInternalIndex(x, y)) {
             return grid[*idx];
@@ -80,10 +95,26 @@ public:
         return core::nullopt;
     }
 
-    int getWidth() const { return width; }
-    int getHeight() const { return height; }
-    MDPConfig getConfig() const { return config; }
-    void setConfig(const MDPConfig& cfg) { config = cfg; }
+    int
+    getWidth() const
+    {
+        return width;
+    }
+    int
+    getHeight() const
+    {
+        return height;
+    }
+    MDPConfig
+    getConfig() const
+    {
+        return config;
+    }
+    void
+    setConfig(const MDPConfig& cfg)
+    {
+        config = cfg;
+    }
 };
 
 } // namespace mdp

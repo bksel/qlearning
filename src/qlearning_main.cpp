@@ -28,16 +28,21 @@
 #include "qlearning/simulator.hh"
 #include "qlearning/world.hh"
 
-inline uint64_t mix_seed(uint64_t z) noexcept {
+inline uint64_t
+mix_seed(uint64_t z) noexcept
+{
     z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
     z = (z ^ (z >> 27)) * 0x94d049bb133111ebULL;
     return z ^ (z >> 31);
 }
 
-ql::BatchMemory run_training_epochs(ql::Simulator& sim,
-                                    mdp::GridWorld& world,
-                                    const ql::RuntimeConfig& run_cfg,
-                                    const ql::BatchConfig& b_config)
+ql::BatchMemory
+run_training_epochs(
+  ql::Simulator& sim,
+  mdp::GridWorld& world,
+  const ql::RuntimeConfig& run_cfg,
+  const ql::BatchConfig& b_config
+)
 {
     std::size_t raw_width = b_config.padded_width - 2;
     std::size_t raw_height = b_config.padded_height - 2;
@@ -61,8 +66,16 @@ ql::BatchMemory run_training_epochs(ql::Simulator& sim,
         for (std::size_t i = 0; i < run_cfg.num_threads; ++i) {
             uint64_t raw_seed = master_seed + (epoch * 1000) + i;
             uint64_t thread_seed = mix_seed(raw_seed); // <-- Scramble the bits!
-            futures.push_back(std::async(std::launch::async, ql::run_batch, std::ref(sim), b_config,
-                                         global_batch, thread_seed));
+            futures.push_back(
+              std::async(
+                std::launch::async,
+                ql::run_batch,
+                std::ref(sim),
+                b_config,
+                global_batch,
+                thread_seed
+              )
+            );
         }
 
         // 2. Wait and Reduce (Strictly Bounded Federated Averaging)
@@ -93,7 +106,8 @@ ql::BatchMemory run_training_epochs(ql::Simulator& sim,
                 std::size_t combined_N = old_N + total_new_visits[i];
                 double historical_mass = old_Q * static_cast<double>(old_N);
 
-                global_batch.Q_table[i] = (historical_mass + sum_new_Q_mass[i]) / static_cast<double>(combined_N);
+                global_batch.Q_table[i] =
+                  (historical_mass + sum_new_Q_mass[i]) / static_cast<double>(combined_N);
                 global_batch.N_table[i] = combined_N;
             }
         }
@@ -102,8 +116,10 @@ ql::BatchMemory run_training_epochs(ql::Simulator& sim,
         for (std::size_t y = 1; y <= raw_height; ++y) {
             for (std::size_t x = 1; x <= raw_width; ++x) {
                 auto state = world.getState(x, y);
-                if (!state || state->type == mdp::EState::Forbidden ||
-                    state->type == mdp::EState::Terminal)
+                if (
+                  !state || state->type == mdp::EState::Forbidden ||
+                  state->type == mdp::EState::Terminal
+                )
                     continue;
 
                 double max_q = -std::numeric_limits<double>::infinity();
@@ -126,9 +142,12 @@ ql::BatchMemory run_training_epochs(ql::Simulator& sim,
     return global_batch;
 }
 
-void apply_qtable_to_world(mdp::GridWorld& world,
-                           const ql::BatchMemory& global_batch,
-                           const ql::BatchConfig& b_config)
+void
+apply_qtable_to_world(
+  mdp::GridWorld& world,
+  const ql::BatchMemory& global_batch,
+  const ql::BatchConfig& b_config
+)
 {
     std::size_t raw_width = b_config.padded_width - 2;
     std::size_t raw_height = b_config.padded_height - 2;
@@ -136,8 +155,10 @@ void apply_qtable_to_world(mdp::GridWorld& world,
     for (std::size_t y = 1; y <= raw_height; ++y) {
         for (std::size_t x = 1; x <= raw_width; ++x) {
             auto state = world.getState(x, y);
-            if (!state || state->type == mdp::EState::Forbidden ||
-                state->type == mdp::EState::Terminal)
+            if (
+              !state || state->type == mdp::EState::Forbidden ||
+              state->type == mdp::EState::Terminal
+            )
                 continue;
 
             double max_q = -std::numeric_limits<double>::infinity();
@@ -159,7 +180,11 @@ void apply_qtable_to_world(mdp::GridWorld& world,
     }
 }
 
-int main(int argc, char** argv)
+int
+main(
+  int argc,
+  char** argv
+)
 {
     std::cout << "Author: " << aiml::author << "\n";
 

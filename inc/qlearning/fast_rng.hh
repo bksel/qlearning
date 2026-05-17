@@ -20,7 +20,8 @@ struct FastRNG {
     {
     }
 
-    inline uint32_t next() noexcept
+    inline uint32_t
+    next() noexcept
     {
         state ^= state << 13;
         state ^= state >> 7;
@@ -28,6 +29,10 @@ struct FastRNG {
         return static_cast<uint32_t>(state);
     }
 
-    inline double next_double() noexcept { return (next() >> 8) * 0x1.0p-24; }
+    inline double
+    next_double() noexcept
+    {
+        return (next() >> 8) * 0x1.0p-24;
+    }
 };
-} // namespace qlearning
+} // namespace ql
