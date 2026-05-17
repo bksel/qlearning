@@ -62,7 +62,7 @@ public:
                 iss >> x >> y;
                 config.start_pos = {{x, y}};
                 if (auto state = world.getState(x, y)) {
-                    state->type = StateType::Start;
+                    state->type = EState::Start;
                 }
             } else if (label == "P") {
                 iss >> config.p1 >> config.p2 >> config.p3;
@@ -89,7 +89,7 @@ public:
                 double r;
                 iss >> x >> y >> r;
                 if (auto state = world.getState(x, y)) {
-                    state->type = StateType::Terminal;
+                    state->type = EState::Terminal;
                     state->reward = r;
                     state->utility = r;
                 }
@@ -98,14 +98,14 @@ public:
                 double r;
                 iss >> x >> y >> r;
                 if (auto state = world.getState(x, y)) {
-                    state->type = StateType::Special;
+                    state->type = EState::Special;
                     state->reward = r;
                 }
             } else if (label == "F") {
                 int x, y;
                 iss >> x >> y;
                 if (auto state = world.getState(x, y)) {
-                    state->type = StateType::Forbidden;
+                    state->type = EState::Forbidden;
                 }
             }
         }

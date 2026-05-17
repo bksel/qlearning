@@ -11,11 +11,14 @@
 
 #pragma once
 
+#include "mdp/common_defs.hh"
+#include "mdp/grid_world.hh"
+
 namespace ql {
 
-enum class EAction { Up, Down, Left, Right };
+using EAction = mdp::EAction;
 
-enum class EState { Normal, Start, Terminal, Special, Forbidden };
+using EState = mdp::EState;
 
 struct FastState {
     EState type = EState::Normal;
@@ -28,4 +31,4 @@ struct StepResult {
     double reward;
     bool is_terminal;
 };
-} // namespace qlearning
+} // namespace ql

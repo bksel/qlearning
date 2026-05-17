@@ -9,66 +9,12 @@
  *
  */
 
-#include <iomanip>
 #include <iostream>
 
 #include "mdp/common_defs.hh"
 #include "mdp/mdp_algo.hh"
 #include "mdp/mdp_parser.hh"
-
-// Helper to print the optimal policy in a grid
-void print_policy(const mdp::GridWorld& world)
-{
-    auto config = world.getConfig();
-    std::cout << "\nPolicy:\n";
-
-    // Create the horizontal border for the policy grid
-    std::string hline = "+";
-    for (int i = 0; i < config.width; ++i) {
-        hline += "---+";
-    }
-
-    for (int y = config.height; y >= 1; --y) {
-        std::cout << hline << "\n|";
-        for (int x = 1; x <= config.width; ++x) {
-            auto state = world.getState(x, y);
-            if (state->type == mdp::StateType::Forbidden)
-                std::cout << " F |";
-            else if (state->type == mdp::StateType::Terminal)
-                std::cout << " T |";
-            else
-                std::cout << " " << state->policy << " |";
-        }
-        std::cout << "\n";
-    }
-    std::cout << hline << "\n";
-}
-
-void print_utilities(const mdp::GridWorld& world)
-{
-    auto config = world.getConfig();
-    std::cout << "\nUtilities:\n";
-
-    // Create a wider horizontal border for 4-decimal floating point numbers
-    std::string hline = "+";
-    for (int i = 0; i < config.width; ++i) {
-        hline += "----------+";
-    }
-
-    std::cout << std::fixed << std::setprecision(4);
-    for (int y = config.height; y >= 1; --y) {
-        std::cout << hline << "\n|";
-        for (int x = 1; x <= config.width; ++x) {
-            auto state = world.getState(x, y);
-            if (state->type == mdp::StateType::Forbidden)
-                std::cout << "    F     |";
-            else
-                std::cout << " " << std::setw(8) << state->utility << " |";
-        }
-        std::cout << "\n";
-    }
-    std::cout << hline << "\n";
-}
+#include "mdp/visualiser.hh"
 
 int main(int argc, char** argv)
 {
@@ -115,8 +61,8 @@ int main(int argc, char** argv)
     std::cout << "Value Iteration converged in " << iteration << " iterations.\n";
 
     // 3. Print the results
-    print_policy(world);
-    print_utilities(world);
+    mdp::print_policy(world);
+    mdp::print_utilities(world);
 
     return 0;
 }

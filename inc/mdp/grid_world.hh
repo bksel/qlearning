@@ -19,11 +19,11 @@
 namespace mdp {
 
 // Represents the different types of states in the grid
-enum class StateType { Normal, Start, Terminal, Special, Forbidden };
+enum class EState { Normal, Start, Terminal, Special, Forbidden };
 
 // Represents a single cell/state in the MDP world
 struct State {
-    StateType type = StateType::Normal;
+    EState type = EState::Normal;
     double reward = 0.0;  // R(s)
     double utility = 0.0; // U(s) for Part I, or max_a Q(s,a) for Part II
     char policy = '*';    // >, <, ^, v, or * for uninitialized/terminal

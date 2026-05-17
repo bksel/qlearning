@@ -39,7 +39,7 @@ inline double calculate_expected_utility(const GridWorld& world, int x, int y, E
 
         // "When the agent executes a move outside the wall, or into a forbidden state... she stays
         // in place"
-        if (!next_state || next_state->type == StateType::Forbidden) {
+        if (!next_state || next_state->type == EState::Forbidden) {
             return world.getState(x, y)->utility; // Bounce back
         }
         return next_state->utility;
@@ -77,8 +77,8 @@ inline uint calculate_policies(GridWorld& world, const MDPConfig& config, std::o
         for (int y = 1; y <= config.height; ++y) {
             for (int x = 1; x <= config.width; ++x) {
                 auto state = world.getState(x, y);
-                if (!state || state->type == StateType::Forbidden ||
-                    state->type == StateType::Terminal)
+                if (!state || state->type == EState::Forbidden ||
+                    state->type == EState::Terminal)
                     continue; // Skip walls and terminals
 
                 auto max_val = std::numeric_limits<double>::lowest();
