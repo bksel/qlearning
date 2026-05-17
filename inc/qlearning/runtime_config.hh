@@ -30,7 +30,7 @@ struct RuntimeConfig {
         if (num_threads == 0) num_threads = 4;
 
         epochs = 100;
-        total_trials = 100000;
+        total_trials = 10000*100*1000;
 
         // 2. Parse Environment Overrides safely
         num_threads = parse_env("MDP_NUM_THREADS", num_threads);

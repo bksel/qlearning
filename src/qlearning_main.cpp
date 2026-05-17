@@ -100,6 +100,7 @@ int main(int argc, char** argv)
 
     // 4. The Epoch Training Loop
     for (int epoch = 1; epoch <= run_cfg.epochs; ++epoch) {
+        std::cout << "Running epoch (" << epoch << '/' << run_cfg.epochs << ")\n";
         std::vector<std::future<ql::BatchMemory>> futures;
 
         // Launch Threads
@@ -141,7 +142,6 @@ int main(int argc, char** argv)
             }
         }
 
-        global_batch = next_global; // Promote to master
 
         // Calculate Convergence (Delta)
         double max_delta = 0.0;
