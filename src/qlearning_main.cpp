@@ -58,7 +58,7 @@ ql::BatchMemory run_training_epochs(ql::Simulator& sim,
                                          global_batch, thread_seed));
         }
 
-        // 2. Wait and Reduce (Weighted Delta Aggregation)
+        // 2. Wait and Reduce (Numerically Stable Variance Reduction)
         std::vector<double> total_new_contribution(global_batch.Q_table.size(), 0.0);
         std::vector<std::size_t> total_new_visits(global_batch.N_table.size(), 0);
 
@@ -74,11 +74,11 @@ ql::BatchMemory run_training_epochs(ql::Simulator& sim,
 
                 std::size_t delta_N = local_N - old_N;
                 if (delta_N > 0) {
-                    // Extract the exact net-new experience gathered by this thread
-                    double total_local_energy = local_Q * static_cast<double>(local_N);
-                    double historical_energy = old_Q * static_cast<double>(old_N);
+                    // Refactored algebraic identity to eliminate Catastrophic Cancellation
+                    double thread_contribution = ((local_Q - old_Q) * static_cast<double>(old_N)) +
+                                                 (local_Q * static_cast<double>(delta_N));
 
-                    total_new_contribution[i] += (total_local_energy - historical_energy);
+                    total_new_contribution[i] += thread_contribution;
                     total_new_visits[i] += delta_N;
                 }
             }
