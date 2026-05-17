@@ -74,6 +74,12 @@ public:
     {
         return storage_.value();
     }
+
+    template <typename U>
+    constexpr T value_or(U&& default_value) const
+    {
+        return storage_.value_or(std::forward<U>(default_value));
+    }
 };
 
 // --- THE SPECIALIZATION: Zero-overhead reference optional ---
@@ -139,6 +145,11 @@ public:
         if (!ptr_)
             throw std::bad_optional_access{};
         return *ptr_;
+    }
+
+    constexpr T& value_or(T& default_value) const noexcept
+    {
+        return ptr_ ? *ptr_ : default_value;
     }
 
     constexpr void reset() noexcept

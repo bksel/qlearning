@@ -23,7 +23,7 @@ namespace ql {
 
 struct BatchMemory {
     std::vector<double> Q_table;
-    std::vector<int> N_table;
+    std::vector<std::size_t> N_table;
 };
 
 inline BatchMemory run_batch(const Simulator& sim,

@@ -9,6 +9,7 @@
  *
  */
 
+#include <cstddef>
 #include <span>
 
 #include "defs.hh"
@@ -19,7 +20,7 @@ namespace ql {
 class QAgent {
 private:
     std::span<double> Q;
-    std::span<int> N;
+    std::span<std::size_t> N;
     std::size_t padded_width;
     double gamma, epsilon;
 
@@ -29,7 +30,7 @@ private:
     }
 
 public:
-    QAgent(std::span<double> q, std::span<int> n, std::size_t w, double g, double e)
+    QAgent(std::span<double> q, std::span<std::size_t> n, std::size_t w, double g, double e)
       : Q(q)
       , N(n)
       , padded_width(w)

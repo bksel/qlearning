@@ -28,66 +28,15 @@
 #include "qlearning/simulator.hh"
 #include "qlearning/world.hh"
 
-int main(int argc, char** argv)
+ql::BatchMemory run_training_epochs(ql::Simulator& sim,
+                                    mdp::GridWorld& world,
+                                    const ql::RuntimeConfig& run_cfg,
+                                    const ql::BatchConfig& b_config)
 {
-    std::cout << "Author: " << aiml::author << "\n";
-
-    if (argc < 2) {
-        std::cerr << "Usage: " << argv[0] << " <filename> [gamma] [epsilon]\n";
-        return 1;
-    }
-
-    std::string filename = argv[1];
-
-    // 1. Parse file
-    auto world_opt = mdp::MDPParser::parseFile(filename);
-    if (!world_opt) {
-        std::cerr << "Failed to parse MDP configuration from " << filename << "\n";
-        return 1;
-    }
-
-    mdp::GridWorld world = *world_opt;
-    mdp::MDPConfig config = world.getConfig();
-
-    // Override with command-line arguments if provided
-    if (argc >= 3) config.gamma = std::stod(argv[2]);
-    if (argc >= 4) config.epsilon = std::stod(argv[3]);
-
-    // Fallbacks
-    if (!config.gamma.has_value()) config.gamma = 1.0;
-    if (!config.epsilon.has_value()) config.epsilon = 0.05;
-
-    std::size_t raw_width = config.width;
-    std::size_t raw_height = config.height;
-
-    core::optional<ql::Simulator> opt_sim = ql::Simulator::from_gridworld(world);
-
-    if (!opt_sim.has_value()) {
-        std::cerr << "Failed to create Q-learning simulation from " << filename << "\n";
-        return 1;
-    }
-    ql::Simulator sim = *opt_sim;
-
-    // 2. Setup Configuration
-    ql::RuntimeConfig run_cfg;
-
+    std::size_t raw_width = b_config.padded_width - 2;
+    std::size_t raw_height = b_config.padded_height - 2;
     std::size_t trials_per_epoch = run_cfg.total_trials / run_cfg.epochs;
-    std::size_t trials_per_thread = trials_per_epoch / run_cfg.num_threads;
 
-    ql::BatchConfig b_config;
-    b_config.padded_width = raw_width + 2;
-    b_config.padded_height = raw_height + 2;
-    b_config.trials = trials_per_thread; // Pass the divided chunk!
-    b_config.gamma = config.gamma.value();
-    b_config.epsilon = config.epsilon.value();
-
-    std::cout << "Starting Q-Learning Experiment:\n"
-              << "  Threads: " << run_cfg.num_threads << "\n"
-              << "  Epochs: " << run_cfg.epochs << "\n"
-              << "  Total Trials: " << run_cfg.total_trials << "\n"
-              << "  Trials per Epoch: " << trials_per_epoch << "\n\n";
-
-    // 3. Initialize Global Memory & Logging
     ql::BatchMemory global_batch;
     global_batch.Q_table.assign(b_config.padded_width * b_config.padded_height * 4, 0.0);
     global_batch.N_table.assign(b_config.padded_width * b_config.padded_height * 4, 0);
@@ -98,52 +47,46 @@ int main(int argc, char** argv)
 
     uint64_t master_seed = 1337;
 
-    // 4. The Epoch Training Loop
     for (int epoch = 1; epoch <= run_cfg.epochs; ++epoch) {
-        std::cout << "Running epoch (" << epoch << '/' << run_cfg.epochs << ")\n";
+        std::cout << "Running epoch (" << epoch << '/' << run_cfg.epochs << ")...\r" << std::flush;
         std::vector<std::future<ql::BatchMemory>> futures;
 
-        // Launch Threads
+        // 1. Launch Threads
         for (int i = 0; i < run_cfg.num_threads; ++i) {
             uint64_t thread_seed = master_seed + (epoch * 1000) + i;
             futures.push_back(std::async(std::launch::async, ql::run_batch, std::ref(sim), b_config,
                                          global_batch, thread_seed));
         }
 
-        // Merge Results (Reduce)
-        ql::BatchMemory next_global = global_batch;
-        // Reset N_table so we only weight the NEW visits from this epoch!
-        next_global.N_table.assign(b_config.padded_width * b_config.padded_height * 4, 0);
-
-        std::vector<double> sum_delta_Q(b_config.padded_width * b_config.padded_height * 4, 0.0);
-        std::vector<int> sum_delta_N(b_config.padded_width * b_config.padded_height * 4, 0);
-        std::vector<int> active_threads(b_config.padded_width * b_config.padded_height * 4, 0);
+        // 2. Wait and Reduce (Weighted Delta Aggregation)
+        std::vector<double> weighted_delta_Q(global_batch.Q_table.size(), 0.0);
+        std::vector<std::size_t> sum_delta_N(global_batch.N_table.size(), 0);
 
         for (auto& f : futures) {
             ql::BatchMemory local_batch = f.get();
-
             for (std::size_t i = 0; i < global_batch.Q_table.size(); ++i) {
-                // How many NEW visits did this specific thread make?
-                int delta_N = local_batch.N_table[i] - global_batch.N_table[i];
+                // How many NEW visits did this thread make?
+                std::size_t delta_N = local_batch.N_table[i] - global_batch.N_table[i];
 
                 if (delta_N > 0) {
+                    double delta_Q = local_batch.Q_table[i] - global_batch.Q_table[i];
+                    // Weight the Q change by the number of visits this thread actually did!
+                    weighted_delta_Q[i] += (delta_Q * static_cast<double>(delta_N));
                     sum_delta_N[i] += delta_N;
-                    sum_delta_Q[i] += (local_batch.Q_table[i] - global_batch.Q_table[i]);
-                    active_threads[i]++;
                 }
             }
         }
 
-        // Apply the averaged updates back to the master global batch
+        // Apply properly weighted average deltas to master memory
         for (std::size_t i = 0; i < global_batch.Q_table.size(); ++i) {
-            if (active_threads[i] > 0) {
-                global_batch.Q_table[i] += (sum_delta_Q[i] / active_threads[i]);
+            if (sum_delta_N[i] > 0) {
+                global_batch.Q_table[i] +=
+                    (weighted_delta_Q[i] / static_cast<double>(sum_delta_N[i]));
                 global_batch.N_table[i] += sum_delta_N[i];
             }
         }
 
-
-        // Calculate Convergence (Delta)
+        // 3. Calculate Convergence (Delta)
         double max_delta = 0.0;
         for (std::size_t y = 1; y <= raw_height; ++y) {
             for (std::size_t x = 1; x <= raw_width; ++x) {
@@ -161,18 +104,24 @@ int main(int argc, char** argv)
                 std::size_t u_idx = y * b_config.padded_width + x;
                 double delta = std::abs(max_q - prev_utilities[u_idx]);
                 if (delta > max_delta) max_delta = delta;
-
-                prev_utilities[u_idx] = max_q; // Save for next epoch
+                prev_utilities[u_idx] = max_q;
             }
         }
 
-        // Log to file
         plot_file << (epoch * trials_per_epoch) << "\t" << max_delta << "\n";
     }
 
-    std::cout << "High-Speed Q-Learning completed! Data written to qlearning_convergence.dat\n";
+    std::cout << "\nHigh-Speed Q-Learning completed! Data written to qlearning_convergence.dat\n";
+    return global_batch;
+}
 
-    // 5. Extract Final Policy & Utilities
+void apply_qtable_to_world(mdp::GridWorld& world,
+                           const ql::BatchMemory& global_batch,
+                           const ql::BatchConfig& b_config)
+{
+    std::size_t raw_width = b_config.padded_width - 2;
+    std::size_t raw_height = b_config.padded_height - 2;
+
     for (std::size_t y = 1; y <= raw_height; ++y) {
         for (std::size_t x = 1; x <= raw_width; ++x) {
             auto state = world.getState(x, y);
@@ -194,10 +143,52 @@ int main(int argc, char** argv)
             }
 
             state->utility = max_q;
-            state->policy = action_to_char(best_action);
+            state->policy = mdp::action_to_char(best_action);
         }
     }
+}
 
+int main(int argc, char** argv)
+{
+    std::cout << "Author: " << aiml::author << "\n";
+
+    if (argc < 2) {
+        std::cerr << "Usage: " << argv[0] << " <filename> [gamma] [epsilon]\n";
+        return 1;
+    }
+
+    // 1. Parse File & Configuration
+    auto world_opt = mdp::MDPParser::parseFile(argv[1]);
+    if (!world_opt) return 1;
+    mdp::GridWorld world = *world_opt;
+    mdp::MDPConfig config = world.getConfig();
+
+    config.gamma = (argc >= 3) ? std::stod(argv[2]) : config.gamma.value_or(1.0);
+    config.epsilon = (argc >= 4) ? std::stod(argv[3]) : config.epsilon.value_or(0.05);
+
+    auto sim_opt = ql::Simulator::from_gridworld(world);
+    if (!sim_opt) return 1;
+    ql::Simulator sim = *sim_opt;
+
+    // 2. Setup Runtime Environment
+    ql::RuntimeConfig run_cfg;
+    ql::BatchConfig b_config;
+    b_config.padded_width = config.width + 2;
+    b_config.padded_height = config.height + 2;
+    b_config.trials = (run_cfg.total_trials / run_cfg.epochs) / run_cfg.num_threads;
+    b_config.gamma = config.gamma.value();
+    b_config.epsilon = config.epsilon.value();
+
+    std::cout << "Starting Q-Learning Experiment:\n"
+              << "  Threads: " << run_cfg.num_threads << "\n"
+              << "  Epochs: " << run_cfg.epochs << "\n"
+              << "  Total Trials: " << run_cfg.total_trials << "\n\n";
+
+    // 3. Execute Experiment
+    ql::BatchMemory final_memory = run_training_epochs(sim, world, run_cfg, b_config);
+
+    // 4. Extract and Visualise Results
+    apply_qtable_to_world(world, final_memory, b_config);
     mdp::print_utilities(world);
     mdp::print_policy(world);
 
