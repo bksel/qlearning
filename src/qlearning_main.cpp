@@ -28,6 +28,12 @@
 #include "qlearning/simulator.hh"
 #include "qlearning/world.hh"
 
+inline uint64_t mix_seed(uint64_t z) noexcept {
+    z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
+    z = (z ^ (z >> 27)) * 0x94d049bb133111ebULL;
+    return z ^ (z >> 31);
+}
+
 ql::BatchMemory run_training_epochs(ql::Simulator& sim,
                                     mdp::GridWorld& world,
                                     const ql::RuntimeConfig& run_cfg,
@@ -53,48 +59,41 @@ ql::BatchMemory run_training_epochs(ql::Simulator& sim,
 
         // 1. Launch Threads
         for (std::size_t i = 0; i < run_cfg.num_threads; ++i) {
-            uint64_t thread_seed = master_seed + (epoch * 1000) + i;
+            uint64_t raw_seed = master_seed + (epoch * 1000) + i;
+            uint64_t thread_seed = mix_seed(raw_seed); // <-- Scramble the bits!
             futures.push_back(std::async(std::launch::async, ql::run_batch, std::ref(sim), b_config,
                                          global_batch, thread_seed));
         }
 
-        // 2. Wait and Reduce (Numerically Stable Variance Reduction)
-        std::vector<double> total_new_contribution(global_batch.Q_table.size(), 0.0);
+        // 2. Wait and Reduce (Strictly Bounded Federated Averaging)
+        std::vector<double> sum_new_Q_mass(global_batch.Q_table.size(), 0.0);
         std::vector<std::size_t> total_new_visits(global_batch.N_table.size(), 0);
 
         for (auto& f : futures) {
             ql::BatchMemory local_batch = f.get();
-
             for (std::size_t i = 0; i < global_batch.Q_table.size(); ++i) {
-                std::size_t old_N = global_batch.N_table[i];
-                double old_Q = global_batch.Q_table[i];
-
                 std::size_t local_N = local_batch.N_table[i];
-                double local_Q = local_batch.Q_table[i];
+                std::size_t old_N = global_batch.N_table[i];
 
-                std::size_t delta_N = local_N - old_N;
-                if (delta_N > 0) {
-                    // Refactored algebraic identity to eliminate Catastrophic Cancellation
-                    double thread_contribution = ((local_Q - old_Q) * static_cast<double>(old_N)) +
-                                                 (local_Q * static_cast<double>(delta_N));
-
-                    total_new_contribution[i] += thread_contribution;
+                if (local_N > old_N) {
+                    std::size_t delta_N = local_N - old_N;
+                    // Thread contributes its final Q-value weighted ONLY by its new visits
+                    sum_new_Q_mass[i] += (local_batch.Q_table[i] * static_cast<double>(delta_N));
                     total_new_visits[i] += delta_N;
                 }
             }
         }
 
-        // Apply updates while fully preserving historical weight inertia
+        // Apply Federated Average (Mathematically impossible to exceed bounds or hit -inf)
         for (std::size_t i = 0; i < global_batch.Q_table.size(); ++i) {
             if (total_new_visits[i] > 0) {
                 std::size_t old_N = global_batch.N_table[i];
                 double old_Q = global_batch.Q_table[i];
 
                 std::size_t combined_N = old_N + total_new_visits[i];
-                double combined_Q_sum =
-                    (old_Q * static_cast<double>(old_N)) + total_new_contribution[i];
+                double historical_mass = old_Q * static_cast<double>(old_N);
 
-                global_batch.Q_table[i] = combined_Q_sum / static_cast<double>(combined_N);
+                global_batch.Q_table[i] = (historical_mass + sum_new_Q_mass[i]) / static_cast<double>(combined_N);
                 global_batch.N_table[i] = combined_N;
             }
         }
