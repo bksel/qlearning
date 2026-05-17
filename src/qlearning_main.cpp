@@ -71,12 +71,12 @@ int main(int argc, char** argv)
     ql::Simulator sim = *opt_sim;
 
     // 2. Launch Threads
-    int total_trials = 100000; // Assignment says start with 10k, but let's go for precision!
+    std::size_t total_trials = 10000 * 1000 * 100; // Assignment says start with 10k, but let's go for precision!
     int num_threads = std::thread::hardware_concurrency();
     if (num_threads == 0) num_threads = 4;
 
     // temporary:
-    num_threads = 1;
+    // num_threads = 1;
 
     std::cout << "Starting " << total_trials << " trials across " << num_threads << " threads...\n";
 
@@ -85,7 +85,7 @@ int main(int argc, char** argv)
     for (int i = 0; i < num_threads; ++i) {
         futures.push_back(std::async(std::launch::async, ql::run_batch, std::ref(sim), padded_width,
                                      padded_height, total_trials / num_threads,
-                                     config.gamma.value(), config.epsilon.value()));
+                                     config.gamma.value(), config.epsilon.value(), config));
     }
 
     // 3. Merge Results (Reduce)
