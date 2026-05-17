@@ -68,7 +68,7 @@ public:
         std::size_t idx = q_idx(curr_x, curr_y, action);
 
         // Tabular update tracking
-        int visit_count = ++N[idx];
+        std::size_t visit_count = ++N[idx];
         double alpha = 1.0 / static_cast<double>(visit_count);
 
         // Compute max Q(s', a') for the following state if non-terminal
