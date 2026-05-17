@@ -47,45 +47,57 @@ ql::BatchMemory run_training_epochs(ql::Simulator& sim,
 
     uint64_t master_seed = 1337;
 
-    for (int epoch = 1; epoch <= run_cfg.epochs; ++epoch) {
+    for (std::size_t epoch = 1; epoch <= run_cfg.epochs; ++epoch) {
         std::cout << "Running epoch (" << epoch << '/' << run_cfg.epochs << ")...\r" << std::flush;
         std::vector<std::future<ql::BatchMemory>> futures;
 
         // 1. Launch Threads
-        for (int i = 0; i < run_cfg.num_threads; ++i) {
+        for (std::size_t i = 0; i < run_cfg.num_threads; ++i) {
             uint64_t thread_seed = master_seed + (epoch * 1000) + i;
             futures.push_back(std::async(std::launch::async, ql::run_batch, std::ref(sim), b_config,
                                          global_batch, thread_seed));
         }
 
         // 2. Wait and Reduce (Weighted Delta Aggregation)
-        std::vector<double> weighted_delta_Q(global_batch.Q_table.size(), 0.0);
-        std::vector<std::size_t> sum_delta_N(global_batch.N_table.size(), 0);
+        std::vector<double> total_new_contribution(global_batch.Q_table.size(), 0.0);
+        std::vector<std::size_t> total_new_visits(global_batch.N_table.size(), 0);
 
         for (auto& f : futures) {
             ql::BatchMemory local_batch = f.get();
-            for (std::size_t i = 0; i < global_batch.Q_table.size(); ++i) {
-                // How many NEW visits did this thread make?
-                std::size_t delta_N = local_batch.N_table[i] - global_batch.N_table[i];
 
+            for (std::size_t i = 0; i < global_batch.Q_table.size(); ++i) {
+                std::size_t old_N = global_batch.N_table[i];
+                double old_Q = global_batch.Q_table[i];
+
+                std::size_t local_N = local_batch.N_table[i];
+                double local_Q = local_batch.Q_table[i];
+
+                std::size_t delta_N = local_N - old_N;
                 if (delta_N > 0) {
-                    double delta_Q = local_batch.Q_table[i] - global_batch.Q_table[i];
-                    // Weight the Q change by the number of visits this thread actually did!
-                    weighted_delta_Q[i] += (delta_Q * static_cast<double>(delta_N));
-                    sum_delta_N[i] += delta_N;
+                    // Extract the exact net-new experience gathered by this thread
+                    double total_local_energy = local_Q * static_cast<double>(local_N);
+                    double historical_energy = old_Q * static_cast<double>(old_N);
+
+                    total_new_contribution[i] += (total_local_energy - historical_energy);
+                    total_new_visits[i] += delta_N;
                 }
             }
         }
 
-        // Apply properly weighted average deltas to master memory
+        // Apply updates while fully preserving historical weight inertia
         for (std::size_t i = 0; i < global_batch.Q_table.size(); ++i) {
-            if (sum_delta_N[i] > 0) {
-                global_batch.Q_table[i] +=
-                    (weighted_delta_Q[i] / static_cast<double>(sum_delta_N[i]));
-                global_batch.N_table[i] += sum_delta_N[i];
+            if (total_new_visits[i] > 0) {
+                std::size_t old_N = global_batch.N_table[i];
+                double old_Q = global_batch.Q_table[i];
+
+                std::size_t combined_N = old_N + total_new_visits[i];
+                double combined_Q_sum =
+                    (old_Q * static_cast<double>(old_N)) + total_new_contribution[i];
+
+                global_batch.Q_table[i] = combined_Q_sum / static_cast<double>(combined_N);
+                global_batch.N_table[i] = combined_N;
             }
         }
-
         // 3. Calculate Convergence (Delta)
         double max_delta = 0.0;
         for (std::size_t y = 1; y <= raw_height; ++y) {

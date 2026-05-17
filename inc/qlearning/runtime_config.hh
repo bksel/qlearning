@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdlib>
 #include <iostream>
 #include <string>
@@ -19,9 +20,9 @@
 namespace ql {
 
 struct RuntimeConfig {
-    int num_threads;
-    int epochs;
-    int total_trials;
+    std::size_t num_threads;
+    std::size_t epochs;
+    std::size_t total_trials;
 
     RuntimeConfig()
     {
@@ -30,7 +31,7 @@ struct RuntimeConfig {
         if (num_threads == 0) num_threads = 4;
 
         epochs = 100;
-        total_trials = 10000*100*1000;
+        total_trials = 10000000000u;
 
         // 2. Parse Environment Overrides safely
         num_threads = parse_env("MDP_NUM_THREADS", num_threads);
