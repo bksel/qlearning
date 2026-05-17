@@ -27,41 +27,29 @@ struct BatchMemory {
 };
 
 inline BatchMemory run_batch(const Simulator& sim,
-                             std::size_t p_width,
-                             std::size_t p_height,
-                             std::size_t trials,
-                             double gamma,
-                             double epsilon,
-                             mdp::MDPConfig config)
+                             const BatchConfig& config,
+                             const BatchMemory& starting_knowledge,
+                             uint64_t thread_seed)
 {
-    BatchMemory mem;
-    mem.Q_table.assign(p_width * p_height * 4, 0.0);
-    mem.N_table.assign(p_width * p_height * 4, 0);
+    // Initialize thread-local memory with the GLOBAL knowledge!
+    BatchMemory mem = starting_knowledge;
 
-    FastRNG rng(std::random_device{}());
-    QAgent agent(mem.Q_table, mem.N_table, p_width, gamma, epsilon);
+    // Use deterministic seed passed from main
+    FastRNG rng(thread_seed);
+    QAgent agent(mem.Q_table, mem.N_table, config.padded_width, config.gamma, config.epsilon);
 
-    for (std::size_t t = 0; t < trials; ++t) {
-        int cx, cy;
-
-        // Start state logic based on assignment requirements
-        if (config.start_pos.has_value()) {
-            cx = config.start_pos->first;
-            cy = config.start_pos->second;
-        } else {
-            // TODO (Optional but required if start missing): Pick a random valid x, y
-            // For now, defaulting to 1, 1 to keep it compiling
-            cx = 1;
-            cy = 1;
-        }
+    for (std::size_t t = 0; t < config.trials; ++t) {
+        std::size_t cx = 1;
+        std::size_t cy = 1;
 
         while (true) {
-            mdp::EAction action = agent.choose_action(cx, cy, rng);
+            EAction action = agent.choose_action(cx, cy, rng);
             StepResult result = sim.execute_action(cx, cy, action, rng);
             agent.learn(cx, cy, action, result);
 
-            if (result.is_terminal) break;
-
+            if (result.is_terminal) {
+                break;
+            }
             cx = result.next_x;
             cy = result.next_y;
         }

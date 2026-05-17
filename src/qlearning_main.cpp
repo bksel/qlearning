@@ -9,6 +9,9 @@
  *
  */
 
+#include <cmath>
+#include <cstddef>
+#include <fstream>
 #include <future>
 #include <iostream>
 #include <limits>
@@ -21,12 +24,9 @@
 #include "mdp/mdp_parser.hh"
 #include "mdp/visualiser.hh"
 
+#include "qlearning/runtime_config.hh"
 #include "qlearning/simulator.hh"
 #include "qlearning/world.hh"
-
-// You can copy the print_policy and print_utilities functions here from mdp_main.cpp
-// void print_policy(const mdp::GridWorld& world) { ... }
-// void print_utilities(const mdp::GridWorld& world) { ... }
 
 int main(int argc, char** argv)
 {
@@ -55,12 +55,10 @@ int main(int argc, char** argv)
 
     // Fallbacks
     if (!config.gamma.has_value()) config.gamma = 1.0;
-    if (!config.epsilon.has_value()) config.epsilon = 0.05; // Given in assignment
+    if (!config.epsilon.has_value()) config.epsilon = 0.05;
 
-    int raw_width = config.width;
-    int raw_height = config.height;
-    int padded_width = raw_width + 2;
-    int padded_height = raw_height + 2;
+    std::size_t raw_width = config.width;
+    std::size_t raw_height = config.height;
 
     core::optional<ql::Simulator> opt_sim = ql::Simulator::from_gridworld(world);
 
@@ -70,67 +68,123 @@ int main(int argc, char** argv)
     }
     ql::Simulator sim = *opt_sim;
 
-    // 2. Launch Threads
-    std::size_t total_trials = 10000 * 1000 * 100; // Assignment says start with 10k, but let's go for precision!
-    int num_threads = std::thread::hardware_concurrency();
-    if (num_threads == 0) num_threads = 4;
+    // 2. Setup Configuration
+    ql::RuntimeConfig run_cfg;
 
-    // temporary:
-    // num_threads = 1;
+    std::size_t trials_per_epoch = run_cfg.total_trials / run_cfg.epochs;
+    std::size_t trials_per_thread = trials_per_epoch / run_cfg.num_threads;
 
-    std::cout << "Starting " << total_trials << " trials across " << num_threads << " threads...\n";
+    ql::BatchConfig b_config;
+    b_config.padded_width = raw_width + 2;
+    b_config.padded_height = raw_height + 2;
+    b_config.trials = trials_per_thread; // Pass the divided chunk!
+    b_config.gamma = config.gamma.value();
+    b_config.epsilon = config.epsilon.value();
 
-    std::vector<std::future<ql::BatchMemory>> futures;
+    std::cout << "Starting Q-Learning Experiment:\n"
+              << "  Threads: " << run_cfg.num_threads << "\n"
+              << "  Epochs: " << run_cfg.epochs << "\n"
+              << "  Total Trials: " << run_cfg.total_trials << "\n"
+              << "  Trials per Epoch: " << trials_per_epoch << "\n\n";
 
-    for (int i = 0; i < num_threads; ++i) {
-        futures.push_back(std::async(std::launch::async, ql::run_batch, std::ref(sim), padded_width,
-                                     padded_height, total_trials / num_threads,
-                                     config.gamma.value(), config.epsilon.value(), config));
-    }
-
-    // 3. Merge Results (Reduce)
+    // 3. Initialize Global Memory & Logging
     ql::BatchMemory global_batch;
-    global_batch.Q_table.assign(padded_width * padded_height * 4, 0.0);
-    global_batch.N_table.assign(padded_width * padded_height * 4, 0);
+    global_batch.Q_table.assign(b_config.padded_width * b_config.padded_height * 4, 0.0);
+    global_batch.N_table.assign(b_config.padded_width * b_config.padded_height * 4, 0);
 
-    for (auto& f : futures) {
-        ql::BatchMemory local_batch = f.get(); // Blocks until thread completes
+    std::vector<double> prev_utilities(b_config.padded_width * b_config.padded_height, 0.0);
+    std::ofstream plot_file("qlearning_convergence.dat");
+    plot_file << "# Trials\tMax_Delta\n";
 
-        for (size_t i = 0; i < global_batch.Q_table.size(); ++i) {
-            int local_N = local_batch.N_table[i];
-            if (local_N == 0) continue; // Skip unvisited pairs
+    uint64_t master_seed = 1337;
 
-            double local_Q = local_batch.Q_table[i];
+    // 4. The Epoch Training Loop
+    for (int epoch = 1; epoch <= run_cfg.epochs; ++epoch) {
+        std::vector<std::future<ql::BatchMemory>> futures;
 
-            // Weighted average based on visit counts
-            int old_global_N = global_batch.N_table[i];
-            int new_global_N = old_global_N + local_N;
-
-            double current_sum = global_batch.Q_table[i] * old_global_N;
-            double local_sum = local_Q * local_N;
-
-            global_batch.Q_table[i] = (current_sum + local_sum) / new_global_N;
-            global_batch.N_table[i] = new_global_N;
+        // Launch Threads
+        for (int i = 0; i < run_cfg.num_threads; ++i) {
+            uint64_t thread_seed = master_seed + (epoch * 1000) + i;
+            futures.push_back(std::async(std::launch::async, ql::run_batch, std::ref(sim), b_config,
+                                         global_batch, thread_seed));
         }
+
+        // Merge Results (Reduce)
+        ql::BatchMemory next_global = global_batch;
+        // Reset N_table so we only weight the NEW visits from this epoch!
+        next_global.N_table.assign(b_config.padded_width * b_config.padded_height * 4, 0);
+
+        std::vector<double> sum_delta_Q(b_config.padded_width * b_config.padded_height * 4, 0.0);
+        std::vector<int> sum_delta_N(b_config.padded_width * b_config.padded_height * 4, 0);
+        std::vector<int> active_threads(b_config.padded_width * b_config.padded_height * 4, 0);
+
+        for (auto& f : futures) {
+            ql::BatchMemory local_batch = f.get();
+
+            for (std::size_t i = 0; i < global_batch.Q_table.size(); ++i) {
+                // How many NEW visits did this specific thread make?
+                int delta_N = local_batch.N_table[i] - global_batch.N_table[i];
+
+                if (delta_N > 0) {
+                    sum_delta_N[i] += delta_N;
+                    sum_delta_Q[i] += (local_batch.Q_table[i] - global_batch.Q_table[i]);
+                    active_threads[i]++;
+                }
+            }
+        }
+
+        // Apply the averaged updates back to the master global batch
+        for (std::size_t i = 0; i < global_batch.Q_table.size(); ++i) {
+            if (active_threads[i] > 0) {
+                global_batch.Q_table[i] += (sum_delta_Q[i] / active_threads[i]);
+                global_batch.N_table[i] += sum_delta_N[i];
+            }
+        }
+
+        global_batch = next_global; // Promote to master
+
+        // Calculate Convergence (Delta)
+        double max_delta = 0.0;
+        for (std::size_t y = 1; y <= raw_height; ++y) {
+            for (std::size_t x = 1; x <= raw_width; ++x) {
+                auto state = world.getState(x, y);
+                if (!state || state->type == mdp::EState::Forbidden ||
+                    state->type == mdp::EState::Terminal)
+                    continue;
+
+                double max_q = -std::numeric_limits<double>::infinity();
+                for (std::size_t a = 0; a < 4; ++a) {
+                    std::size_t q_idx = ((y * b_config.padded_width + x) * 4) + a;
+                    if (global_batch.Q_table[q_idx] > max_q) max_q = global_batch.Q_table[q_idx];
+                }
+
+                std::size_t u_idx = y * b_config.padded_width + x;
+                double delta = std::abs(max_q - prev_utilities[u_idx]);
+                if (delta > max_delta) max_delta = delta;
+
+                prev_utilities[u_idx] = max_q; // Save for next epoch
+            }
+        }
+
+        // Log to file
+        plot_file << (epoch * trials_per_epoch) << "\t" << max_delta << "\n";
     }
 
-    std::cout << "High-Speed Q-Learning completed!\n";
+    std::cout << "High-Speed Q-Learning completed! Data written to qlearning_convergence.dat\n";
 
-    // 4. Extract Policy & Utilities from Global Q-Table
-    for (int y = 1; y <= raw_height; ++y) {
-        for (int x = 1; x <= raw_width; ++x) {
+    // 5. Extract Final Policy & Utilities
+    for (std::size_t y = 1; y <= raw_height; ++y) {
+        for (std::size_t x = 1; x <= raw_width; ++x) {
             auto state = world.getState(x, y);
             if (!state || state->type == mdp::EState::Forbidden ||
                 state->type == mdp::EState::Terminal)
                 continue;
 
-            double max_q = std::numeric_limits<double>::lowest();
+            double max_q = -std::numeric_limits<double>::infinity();
             auto best_action = mdp::EAction::Up;
 
-            // Iterate over the 4 actions to find the best one for this state
-            for (int a = 0; a < 4; ++a) {
-                // Calculate 1D index in our padded grid setup
-                size_t q_idx = ((y * padded_width + x) * 4) + a;
+            for (std::size_t a = 0; a < 4; ++a) {
+                std::size_t q_idx = ((y * b_config.padded_width + x) * 4) + a;
                 double q_val = global_batch.Q_table[q_idx];
 
                 if (q_val > max_q) {
@@ -139,13 +193,11 @@ int main(int argc, char** argv)
                 }
             }
 
-            // Assign U(s) = max_a Q(s, a)
             state->utility = max_q;
             state->policy = action_to_char(best_action);
         }
     }
 
-    // Print out the results identically to part 1!
     mdp::print_utilities(world);
     mdp::print_policy(world);
 

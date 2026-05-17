@@ -25,7 +25,7 @@ namespace ql {
 class Simulator {
 private:
     std::vector<FastState> grid;
-    int padded_width;
+    std::size_t padded_width;
     double p1, p2, p3;
 
     Simulator(int raw_width, int raw_height, double p1, double p2, double p3)
@@ -69,11 +69,14 @@ public:
     }
 
     // Notice: NO bounds checking needed because of the Forbidden padding!
-    StepResult execute_action(int curr_x, int curr_y, EAction action, FastRNG& rng) const noexcept
+    StepResult execute_action(std::size_t curr_x,
+                              std::size_t curr_y,
+                              EAction action,
+                              FastRNG& rng) const noexcept
     {
-        // 1. Roll rng and apply probabilities
+        // 1. Roll rng and determine actual stochastic movement direction
         double roll = rng.next_double();
-        EAction actual_move;
+        EAction actual_move = action;
 
         if (roll < p1) {
             actual_move = action;
@@ -85,10 +88,14 @@ public:
             actual_move = mdp::get_opposite_action(action);
         }
 
-        // 2. Calculate next coordinates based on actual_move
+        // 2. Fetch signed directional deltas from common mdp namespace
         auto [dx, dy] = mdp::get_dir(actual_move);
-        int nx = curr_x + dx;
-        int ny = curr_y + dy;
+
+        // Safe unsigned coordinate arithmetic to prevent implicit negative promotion traps
+        std::size_t nx = (dx >= 0) ? (curr_x + static_cast<std::size_t>(dx))
+                                   : (curr_x - static_cast<std::size_t>(-dx));
+        std::size_t ny = (dy >= 0) ? (curr_y + static_cast<std::size_t>(dy))
+                                   : (curr_y - static_cast<std::size_t>(-dy));
 
         // 3. Fast 1D lookup
         const auto& next_state = grid[ny * padded_width + nx];
