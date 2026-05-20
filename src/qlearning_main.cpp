@@ -9,6 +9,7 @@
  *
  */
 
+#include <barrier>
 #include <cmath>
 #include <cstddef>
 #include <fstream>
@@ -16,6 +17,7 @@
 #include <iostream>
 #include <limits>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "core_optional.hh"
@@ -120,38 +122,26 @@ run_training_epochs(
     global_batch.Q_table.assign(b_config.padded_width * b_config.padded_height * 4, 0.0);
     global_batch.N_table.assign(b_config.padded_width * b_config.padded_height * 4, 0);
 
+    // Pre-allocate thread-local memories to avoid allocations inside the epoch loop
+    std::vector<ql::BatchMemory> thread_memories(run_cfg.num_threads, global_batch);
     std::vector<double> prev_utilities(b_config.padded_width * b_config.padded_height, 0.0);
     std::ofstream plot_file("qlearning_convergence.dat");
-    plot_file << "# Trials\tMax_Delta\n";
 
-    uint64_t master_seed = 1337;
+    std::size_t current_epoch = 1;
 
-    for (std::size_t epoch = 1; epoch <= run_cfg.epochs; ++epoch) {
-        std::cout << "Running epoch (" << epoch << '/' << run_cfg.epochs << ")...\r" << std::flush;
-        std::vector<std::future<ql::BatchMemory>> futures;
+    // -------------------------------------------------------------------------
+    // THE COMPLETION FUNCTION: Runs exactly ONCE per epoch in complete safety
+    // This is executed by the last thread to hit the barrier.
+    // -------------------------------------------------------------------------
+    auto on_epoch_complete = [&]() noexcept {
+        std::cout << "Running epoch (" << current_epoch << '/' << run_cfg.epochs << ")...\r"
+                  << std::flush;
 
-        // 1. Launch Threads
-        for (std::size_t i = 0; i < run_cfg.num_threads; ++i) {
-            uint64_t raw_seed = master_seed + (epoch * 1000) + i;
-            uint64_t thread_seed = mix_seed(raw_seed); // <-- Scramble the bits!
-            futures.push_back(
-              std::async(
-                std::launch::async,
-                ql::run_batch,
-                std::ref(sim),
-                b_config,
-                global_batch,
-                thread_seed
-              )
-            );
-        }
-
-        // 2. Wait and Reduce (Mathematically Exact Federated Averaging)
         std::vector<double> sum_new_Q_mass(global_batch.Q_table.size(), 0.0);
         std::vector<std::size_t> total_new_visits(global_batch.N_table.size(), 0);
 
-        for (auto& f : futures) {
-            ql::BatchMemory local_batch = f.get();
+        // 1. Mathematically Exact Federated Averaging
+        for (const auto& local_batch : thread_memories) {
             for (std::size_t i = 0; i < global_batch.Q_table.size(); ++i) {
                 std::size_t local_N = local_batch.N_table[i];
                 std::size_t old_N = global_batch.N_table[i];
@@ -160,7 +150,7 @@ run_training_epochs(
                     std::size_t delta_N = local_N - old_N;
                     double old_Q = global_batch.Q_table[i];
 
-                    // Algebraically extract the sum of the new targets discovered by this thread
+                    // Extract true sum of new targets discovered by this thread
                     double thread_target_sum = (local_batch.Q_table[i] * local_N) - (old_Q * old_N);
 
                     sum_new_Q_mass[i] += thread_target_sum;
@@ -178,15 +168,14 @@ run_training_epochs(
                 std::size_t combined_N = old_N + total_new_visits[i];
                 double historical_mass = old_Q * static_cast<double>(old_N);
 
-                // Re-average the exact historical mass with the true new mass
                 global_batch.Q_table[i] =
                   (historical_mass + sum_new_Q_mass[i]) / static_cast<double>(combined_N);
                 global_batch.N_table[i] = combined_N;
             }
         }
-        // 3. Calculate Convergence (Delta)
-        if (epoch == 1) {
-            // Write the header on the first epoch
+
+        // 2. Track Convergence for EVERY individual state (Professor's Request)
+        if (current_epoch == 1) {
             plot_file << "# Trials";
             for (std::size_t y = 1; y <= raw_height; ++y) {
                 for (std::size_t x = 1; x <= raw_width; ++x) {
@@ -198,11 +187,10 @@ run_training_epochs(
             plot_file << "\n";
         }
 
-        plot_file << (epoch * trials_per_epoch);
+        plot_file << (current_epoch * trials_per_epoch);
         for (std::size_t y = 1; y <= raw_height; ++y) {
             for (std::size_t x = 1; x <= raw_width; ++x) {
                 auto state = world.getState(x, y);
-                // We track EVERYTHING except terminal states (including F, to prove it stays 0)
                 if (!state || state->type == mdp::EState::Terminal) continue;
 
                 double max_q = -std::numeric_limits<double>::infinity();
@@ -219,7 +207,36 @@ run_training_epochs(
             }
         }
         plot_file << "\n";
+        current_epoch++;
+    };
+
+    // -------------------------------------------------------------------------
+    // C++20 BARRIER & WORKER THREAD POOL
+    // -------------------------------------------------------------------------
+    std::barrier<decltype(on_epoch_complete)> sync_point(run_cfg.num_threads, on_epoch_complete);
+    uint64_t master_seed = 1337;
+
+    // Use std::jthread (C++20) which automatically joins on scope exit
+    std::vector<std::jthread> threads;
+
+    for (std::size_t i = 0; i < run_cfg.num_threads; ++i) {
+        threads.emplace_back([&, i]() {
+            uint64_t thread_seed = mix_seed(master_seed + i * 1000);
+
+            for (std::size_t epoch = 1; epoch <= run_cfg.epochs; ++epoch) {
+                // Thread runs its batch, reading from the newly updated global_batch
+                thread_memories[i] =
+                  ql::run_batch(sim, b_config, global_batch, thread_seed + epoch);
+
+                // Block here. When the last thread arrives, the OS wakes them all
+                // up simultaneously AFTER running on_epoch_complete.
+                sync_point.arrive_and_wait();
+            }
+        });
     }
+
+    // Wait for all workers to finish the full loop (implicit jthread join)
+    threads.clear();
 
     std::cout << "\nHigh-Speed Q-Learning completed! Data written to qlearning_convergence.dat\n";
     return global_batch;
