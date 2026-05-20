@@ -104,7 +104,10 @@ public:
 
         // Bellman temporal difference backup
         double old_q = Q[idx];
-        Q[idx] = old_q + alpha * (result.reward + gamma * max_next_q - old_q);
+        // Q[idx] = old_q + alpha * (result.reward + gamma * max_next_q - old_q); // perfectly good
+
+        // mathematical eqwuivalent reducing superscalar pipeline stalls
+        Q[idx] = old_q * (1.0 - alpha) + alpha * (result.reward + gamma * max_next_q);
     }
 };
 

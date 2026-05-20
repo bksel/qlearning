@@ -22,7 +22,12 @@
 
 namespace ql {
 
-struct BatchMemory {
+// struct BatchMemory {
+//     std::vector<double> Q_table;
+//     std::vector<std::size_t> N_table;
+// };
+
+struct alignas(std::hardware_destructive_interference_size) BatchMemory {
     std::vector<double> Q_table;
     std::vector<std::size_t> N_table;
 };
