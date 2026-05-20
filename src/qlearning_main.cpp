@@ -185,15 +185,25 @@ run_training_epochs(
             }
         }
         // 3. Calculate Convergence (Delta)
-        double max_delta = 0.0;
+        if (epoch == 1) {
+            // Write the header on the first epoch
+            plot_file << "# Trials";
+            for (std::size_t y = 1; y <= raw_height; ++y) {
+                for (std::size_t x = 1; x <= raw_width; ++x) {
+                    auto state = world.getState(x, y);
+                    if (!state || state->type == mdp::EState::Terminal) continue;
+                    plot_file << "\tD(" << x << "," << y << ")";
+                }
+            }
+            plot_file << "\n";
+        }
+
+        plot_file << (epoch * trials_per_epoch);
         for (std::size_t y = 1; y <= raw_height; ++y) {
             for (std::size_t x = 1; x <= raw_width; ++x) {
                 auto state = world.getState(x, y);
-                if (
-                  !state || state->type == mdp::EState::Forbidden ||
-                  state->type == mdp::EState::Terminal
-                )
-                    continue;
+                // We track EVERYTHING except terminal states (including F, to prove it stays 0)
+                if (!state || state->type == mdp::EState::Terminal) continue;
 
                 double max_q = -std::numeric_limits<double>::infinity();
                 for (std::size_t a = 0; a < 4; ++a) {
@@ -203,12 +213,12 @@ run_training_epochs(
 
                 std::size_t u_idx = y * b_config.padded_width + x;
                 double delta = std::abs(max_q - prev_utilities[u_idx]);
-                if (delta > max_delta) max_delta = delta;
                 prev_utilities[u_idx] = max_q;
+
+                plot_file << "\t" << delta;
             }
         }
-
-        plot_file << (epoch * trials_per_epoch) << "\t" << max_delta << "\n";
+        plot_file << "\n";
     }
 
     std::cout << "\nHigh-Speed Q-Learning completed! Data written to qlearning_convergence.dat\n";
