@@ -18,7 +18,10 @@
 
 namespace mdp {
 
+enum class EForbiddenState { ShowForbiddenState, DoNotShow };
+
 // Helper to print the optimal policy in a grid
+template <auto PrintForbiddenState = EForbiddenState::ShowForbiddenState>
 inline void
 print_policy(const mdp::GridWorld& world)
 {
@@ -35,9 +38,12 @@ print_policy(const mdp::GridWorld& world)
         std::cout << hline << "\n|";
         for (int x = 1; x <= config.width; ++x) {
             auto state = world.getState(x, y);
-            if (state->type == mdp::EState::Forbidden)
-                std::cout << " F |";
-            else if (state->type == mdp::EState::Terminal)
+
+            if constexpr (
+              PrintForbiddenState == EForbiddenState::ShowForbiddenState
+            ) {
+                if (state->type == mdp::EState::Forbidden) std::cout << " F |";
+            } else if (state->type == mdp::EState::Terminal)
                 std::cout << " T |";
             else
                 std::cout << " " << state->policy << " |";
@@ -47,6 +53,7 @@ print_policy(const mdp::GridWorld& world)
     std::cout << hline << "\n";
 }
 
+template <auto PrintForbiddenState = EForbiddenState::ShowForbiddenState>
 inline void
 print_utilities(const mdp::GridWorld& world)
 {
@@ -64,10 +71,18 @@ print_utilities(const mdp::GridWorld& world)
         std::cout << hline << "\n|";
         for (int x = 1; x <= config.width; ++x) {
             auto state = world.getState(x, y);
-            if (state->type == mdp::EState::Forbidden)
-                std::cout << "    F     |";
-            else
+
+            if constexpr (
+              PrintForbiddenState == EForbiddenState::ShowForbiddenState
+            ) {
+
+                if (state->type == mdp::EState::Forbidden)
+                    std::cout << "    F     |";
+                else
+                    std::cout << " " << std::setw(8) << state->utility << " |";
+            } else {
                 std::cout << " " << std::setw(8) << state->utility << " |";
+            }
         }
         std::cout << "\n";
     }

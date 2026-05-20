@@ -28,6 +28,74 @@
 #include "qlearning/simulator.hh"
 #include "qlearning/world.hh"
 
+void
+print_q_values(
+  const mdp::GridWorld& world,
+  const ql::BatchMemory& global_batch,
+  const ql::BatchConfig& b_config
+)
+{
+    std::cout << "\nQ-Values (1 decimal place):\n";
+
+    std::size_t raw_width = b_config.padded_width - 2;
+    std::size_t raw_height = b_config.padded_height - 2;
+
+    // Create the horizontal border (15 characters per cell)
+    std::string hline = "+";
+    for (std::size_t i = 0; i < raw_width; ++i) hline += "---------------+";
+
+    std::cout << std::fixed << std::setprecision(1);
+
+    for (std::size_t y = raw_height; y >= 1; --y) {
+        std::cout << hline << "\n|";
+
+        // --- TOP ROW: Up Actions ---
+        for (std::size_t x = 1; x <= raw_width; ++x) {
+            auto state = world.getState(x, y);
+            if (state->type == mdp::EState::Forbidden || state->type == mdp::EState::Terminal) {
+                std::cout << "               |";
+            } else {
+                std::size_t q_idx = ((y * b_config.padded_width + x) * 4) +
+                                    static_cast<std::size_t>(mdp::EAction::Up);
+                std::cout << "    ^ " << std::setw(4) << global_batch.Q_table[q_idx] << "     |";
+            }
+        }
+        std::cout << "\n|";
+
+        // --- MIDDLE ROW: Left & Right Actions (and F/T Labels) ---
+        for (std::size_t x = 1; x <= raw_width; ++x) {
+            auto state = world.getState(x, y);
+            if (state->type == mdp::EState::Forbidden) {
+                std::cout << "       F       |";
+            } else if (state->type == mdp::EState::Terminal) {
+                std::cout << "     T " << std::setw(4) << state->reward << "    |";
+            } else {
+                std::size_t q_l = ((y * b_config.padded_width + x) * 4) +
+                                  static_cast<std::size_t>(mdp::EAction::Left);
+                std::size_t q_r = ((y * b_config.padded_width + x) * 4) +
+                                  static_cast<std::size_t>(mdp::EAction::Right);
+                std::cout << " <" << std::setw(4) << global_batch.Q_table[q_l] << "   >"
+                          << std::setw(4) << global_batch.Q_table[q_r] << " |";
+            }
+        }
+        std::cout << "\n|";
+
+        // --- BOTTOM ROW: Down Actions ---
+        for (std::size_t x = 1; x <= raw_width; ++x) {
+            auto state = world.getState(x, y);
+            if (state->type == mdp::EState::Forbidden || state->type == mdp::EState::Terminal) {
+                std::cout << "               |";
+            } else {
+                std::size_t q_idx = ((y * b_config.padded_width + x) * 4) +
+                                    static_cast<std::size_t>(mdp::EAction::Down);
+                std::cout << "    v " << std::setw(4) << global_batch.Q_table[q_idx] << "     |";
+            }
+        }
+        std::cout << "\n";
+    }
+    std::cout << hline << "\n";
+}
+
 inline uint64_t
 mix_seed(uint64_t z) noexcept
 {
@@ -231,8 +299,9 @@ main(
 
     // 4. Extract and Visualise Results
     apply_qtable_to_world(world, final_memory, b_config);
-    mdp::print_utilities(world);
-    mdp::print_policy(world);
+    mdp::print_utilities<mdp::EForbiddenState::DoNotShow>(world);
+    mdp::print_policy<mdp::EForbiddenState::DoNotShow>(world);
+    print_q_values(world, final_memory, b_config); // <--- Add this here
 
     return 0;
 }
