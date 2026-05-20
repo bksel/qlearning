@@ -132,7 +132,7 @@ struct EpochReducer {
 
         // 2. Track Convergence for EVERY individual state
         if (ctx.current_epoch == 1) {
-            ctx.plot_file << "# Trials";
+            ctx.plot_file << "#Trials";
             for (std::size_t y = 1; y <= raw_height; ++y) {
                 for (std::size_t x = 1; x <= raw_width; ++x) {
                     auto state = ctx.world.getState(x, y);
