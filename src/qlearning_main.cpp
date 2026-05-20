@@ -10,10 +10,8 @@
  */
 
 #include <barrier>
-#include <cmath>
 #include <cstddef>
 #include <fstream>
-#include <future>
 #include <iostream>
 #include <limits>
 #include <string>

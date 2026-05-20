@@ -88,13 +88,13 @@ public:
         double roll = rng.next_double();
         EAction actual_move = action;
 
-        if (roll < p1) {
+        if (roll < p1) [[likely]] {
             actual_move = action;
         } else if (roll < p1 + p2) {
             actual_move = mdp::get_left_action(action);
         } else if (roll < p1 + p2 + p3) {
             actual_move = mdp::get_right_action(action);
-        } else {
+        } else [[unlikely]] {
             actual_move = mdp::get_opposite_action(action);
         }
 
