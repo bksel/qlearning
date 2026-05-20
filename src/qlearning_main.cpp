@@ -78,7 +78,7 @@ run_training_epochs(
             );
         }
 
-        // 2. Wait and Reduce (Strictly Bounded Federated Averaging)
+        // 2. Wait and Reduce (Mathematically Exact Federated Averaging)
         std::vector<double> sum_new_Q_mass(global_batch.Q_table.size(), 0.0);
         std::vector<std::size_t> total_new_visits(global_batch.N_table.size(), 0);
 
@@ -90,14 +90,18 @@ run_training_epochs(
 
                 if (local_N > old_N) {
                     std::size_t delta_N = local_N - old_N;
-                    // Thread contributes its final Q-value weighted ONLY by its new visits
-                    sum_new_Q_mass[i] += (local_batch.Q_table[i] * static_cast<double>(delta_N));
+                    double old_Q = global_batch.Q_table[i];
+
+                    // Algebraically extract the sum of the new targets discovered by this thread
+                    double thread_target_sum = (local_batch.Q_table[i] * local_N) - (old_Q * old_N);
+
+                    sum_new_Q_mass[i] += thread_target_sum;
                     total_new_visits[i] += delta_N;
                 }
             }
         }
 
-        // Apply Federated Average (Mathematically impossible to exceed bounds or hit -inf)
+        // Apply Global Average
         for (std::size_t i = 0; i < global_batch.Q_table.size(); ++i) {
             if (total_new_visits[i] > 0) {
                 std::size_t old_N = global_batch.N_table[i];
@@ -106,6 +110,7 @@ run_training_epochs(
                 std::size_t combined_N = old_N + total_new_visits[i];
                 double historical_mass = old_Q * static_cast<double>(old_N);
 
+                // Re-average the exact historical mass with the true new mass
                 global_batch.Q_table[i] =
                   (historical_mass + sum_new_Q_mass[i]) / static_cast<double>(combined_N);
                 global_batch.N_table[i] = combined_N;
@@ -174,7 +179,8 @@ apply_qtable_to_world(
                 }
             }
 
-            state->utility = max_q;
+            // state->utility = max_q;
+            state->utility = state->reward + b_config.gamma * max_q;
             state->policy = mdp::action_to_char(best_action);
         }
     }
