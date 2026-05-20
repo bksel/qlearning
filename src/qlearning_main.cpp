@@ -291,7 +291,7 @@ main(
     ql::Simulator sim = *sim_opt;
 
     // 2. Setup Runtime Environment
-    ql::RuntimeConfig run_cfg;
+    auto run_cfg = ql::RuntimeConfig::from_enviromental_variables();
     ql::BatchConfig b_config;
     b_config.padded_width = config.width + 2;
     b_config.padded_height = config.height + 2;

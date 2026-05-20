@@ -20,19 +20,29 @@ struct RuntimeConfig {
     std::size_t epochs;
     std::size_t total_trials;
 
-    RuntimeConfig()
+    static RuntimeConfig
+    from_enviromental_variables()
     {
-        // 1. Set Hardware Defaults using size_t
-        num_threads = static_cast<std::size_t>(std::thread::hardware_concurrency());
-        if (num_threads == 0) num_threads = 4;
+        RuntimeConfig rc;
+        constexpr std::size_t MIN_TRIALS_PER_THREAD = 100'000;
 
-        epochs = 100;
-        total_trials = 1000000; // 1 Million default
+        std::size_t max_hardware = static_cast<std::size_t>(std::thread::hardware_concurrency());
+        if (max_hardware == 0) max_hardware = 4;
 
-        // 2. Parse Environment Overrides safely using 64-bit unsigned loader
-        num_threads = parse_env_size("MDP_NUM_THREADS", num_threads);
-        epochs = parse_env_size("MDP_EPOCHS", epochs);
-        total_trials = parse_env_size("MDP_TOTAL_TRIALS", total_trials);
+        // 1. Parse Environment Overrides (as you already do)
+        std::size_t requested_threads = parse_env_size("MDP_NUM_THREADS", max_hardware);
+        rc.epochs = parse_env_size("MDP_EPOCHS", 100);
+        rc.total_trials = parse_env_size("MDP_TOTAL_TRIALS", 1000000);
+
+        // 2. Calculate the maximum number of threads that actually make sense
+        std::size_t trials_per_epoch = rc.total_trials / rc.epochs;
+        std::size_t max_useful_threads =
+          std::max<std::size_t>(1, trials_per_epoch / MIN_TRIALS_PER_THREAD);
+
+        // 3. Clamp the final thread count
+        rc.num_threads = std::min(requested_threads, max_useful_threads);
+
+        return rc;
     }
 
 private:
