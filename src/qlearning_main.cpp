@@ -114,109 +114,29 @@ run_training_epochs(
   const ql::BatchConfig& b_config
 )
 {
-    std::size_t raw_width = b_config.padded_width - 2;
-    std::size_t raw_height = b_config.padded_height - 2;
-    std::size_t trials_per_epoch = run_cfg.total_trials / run_cfg.epochs;
-
     ql::BatchMemory global_batch;
     global_batch.Q_table.assign(b_config.padded_width * b_config.padded_height * 4, 0.0);
     global_batch.N_table.assign(b_config.padded_width * b_config.padded_height * 4, 0);
 
-    // Pre-allocate thread-local memories to avoid allocations inside the epoch loop
     std::vector<ql::BatchMemory> thread_memories(run_cfg.num_threads, global_batch);
     std::vector<double> prev_utilities(b_config.padded_width * b_config.padded_height, 0.0);
     std::ofstream plot_file("qlearning_convergence.dat");
-
     std::size_t current_epoch = 1;
 
-    // -------------------------------------------------------------------------
-    // THE COMPLETION FUNCTION: Runs exactly ONCE per epoch in complete safety
-    // This is executed by the last thread to hit the barrier.
-    // -------------------------------------------------------------------------
-    auto on_epoch_complete = [&]() noexcept {
-        std::cout << "Running epoch (" << current_epoch << '/' << run_cfg.epochs << ")...\r"
-                  << std::flush;
-
-        std::vector<double> sum_new_Q_mass(global_batch.Q_table.size(), 0.0);
-        std::vector<std::size_t> total_new_visits(global_batch.N_table.size(), 0);
-
-        // 1. Mathematically Exact Federated Averaging
-        for (const auto& local_batch : thread_memories) {
-            for (std::size_t i = 0; i < global_batch.Q_table.size(); ++i) {
-                std::size_t local_N = local_batch.N_table[i];
-                std::size_t old_N = global_batch.N_table[i];
-
-                if (local_N > old_N) {
-                    std::size_t delta_N = local_N - old_N;
-                    double old_Q = global_batch.Q_table[i];
-
-                    // Extract true sum of new targets discovered by this thread
-                    double thread_target_sum = (local_batch.Q_table[i] * local_N) - (old_Q * old_N);
-
-                    sum_new_Q_mass[i] += thread_target_sum;
-                    total_new_visits[i] += delta_N;
-                }
-            }
-        }
-
-        // Apply Global Average
-        for (std::size_t i = 0; i < global_batch.Q_table.size(); ++i) {
-            if (total_new_visits[i] > 0) {
-                std::size_t old_N = global_batch.N_table[i];
-                double old_Q = global_batch.Q_table[i];
-
-                std::size_t combined_N = old_N + total_new_visits[i];
-                double historical_mass = old_Q * static_cast<double>(old_N);
-
-                global_batch.Q_table[i] =
-                  (historical_mass + sum_new_Q_mass[i]) / static_cast<double>(combined_N);
-                global_batch.N_table[i] = combined_N;
-            }
-        }
-
-        // 2. Track Convergence for EVERY individual state (Professor's Request)
-        if (current_epoch == 1) {
-            plot_file << "# Trials";
-            for (std::size_t y = 1; y <= raw_height; ++y) {
-                for (std::size_t x = 1; x <= raw_width; ++x) {
-                    auto state = world.getState(x, y);
-                    if (!state || state->type == mdp::EState::Terminal) continue;
-                    plot_file << "\tD(" << x << "," << y << ")";
-                }
-            }
-            plot_file << "\n";
-        }
-
-        plot_file << (current_epoch * trials_per_epoch);
-        for (std::size_t y = 1; y <= raw_height; ++y) {
-            for (std::size_t x = 1; x <= raw_width; ++x) {
-                auto state = world.getState(x, y);
-                if (!state || state->type == mdp::EState::Terminal) continue;
-
-                double max_q = -std::numeric_limits<double>::infinity();
-                for (std::size_t a = 0; a < 4; ++a) {
-                    std::size_t q_idx = ((y * b_config.padded_width + x) * 4) + a;
-                    if (global_batch.Q_table[q_idx] > max_q) max_q = global_batch.Q_table[q_idx];
-                }
-
-                std::size_t u_idx = y * b_config.padded_width + x;
-                double delta = std::abs(max_q - prev_utilities[u_idx]);
-                prev_utilities[u_idx] = max_q;
-
-                plot_file << "\t" << delta;
-            }
-        }
-        plot_file << "\n";
-        current_epoch++;
+    // Pack the context and instantiate the barrier
+    ql::EpochContext ctx{
+      global_batch,
+      thread_memories,
+      world,
+      b_config,
+      run_cfg,
+      prev_utilities,
+      plot_file,
+      current_epoch
     };
+    std::barrier sync_point(run_cfg.num_threads, ql::EpochReducer{ctx});
 
-    // -------------------------------------------------------------------------
-    // C++20 BARRIER & WORKER THREAD POOL
-    // -------------------------------------------------------------------------
-    std::barrier<decltype(on_epoch_complete)> sync_point(run_cfg.num_threads, on_epoch_complete);
     uint64_t master_seed = 1337;
-
-    // Use std::jthread (C++20) which automatically joins on scope exit
     std::vector<std::jthread> threads;
 
     for (std::size_t i = 0; i < run_cfg.num_threads; ++i) {
@@ -224,18 +144,14 @@ run_training_epochs(
             uint64_t thread_seed = mix_seed(master_seed + i * 1000);
 
             for (std::size_t epoch = 1; epoch <= run_cfg.epochs; ++epoch) {
-                // Thread runs its batch, reading from the newly updated global_batch
                 thread_memories[i] =
                   ql::run_batch(sim, b_config, global_batch, thread_seed + epoch);
-
-                // Block here. When the last thread arrives, the OS wakes them all
-                // up simultaneously AFTER running on_epoch_complete.
                 sync_point.arrive_and_wait();
             }
         });
     }
 
-    // Wait for all workers to finish the full loop (implicit jthread join)
+    // jthreads automatically join on destruction, blocking here until finished
     threads.clear();
 
     std::cout << "\nHigh-Speed Q-Learning completed! Data written to qlearning_convergence.dat\n";
