@@ -39,14 +39,18 @@ print_policy(const mdp::GridWorld& world)
         for (int x = 1; x <= config.width; ++x) {
             auto state = world.getState(x, y);
 
-            if constexpr (
-              PrintForbiddenState == EForbiddenState::ShowForbiddenState
-            ) {
-                if (state->type == mdp::EState::Forbidden) std::cout << " F |";
-            } else if (state->type == mdp::EState::Terminal)
+            if constexpr (PrintForbiddenState == EForbiddenState::ShowForbiddenState) {
+                if (state->type == mdp::EState::Forbidden) {
+                    std::cout << " F |";
+                    continue;
+                }
+            }
+
+            if (state->type == mdp::EState::Terminal) {
                 std::cout << " T |";
-            else
+            } else {
                 std::cout << " " << state->policy << " |";
+            }
         }
         std::cout << "\n";
     }
@@ -72,9 +76,7 @@ print_utilities(const mdp::GridWorld& world)
         for (int x = 1; x <= config.width; ++x) {
             auto state = world.getState(x, y);
 
-            if constexpr (
-              PrintForbiddenState == EForbiddenState::ShowForbiddenState
-            ) {
+            if constexpr (PrintForbiddenState == EForbiddenState::ShowForbiddenState) {
 
                 if (state->type == mdp::EState::Forbidden)
                     std::cout << "    F     |";
