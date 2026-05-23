@@ -4,7 +4,7 @@ This project implements solvers for discrete Markov Decision Problems (MDP) usin
 
 ## Building the Project
 
-Ninja is used by default as the build generator, but you can change it to Make by specifying `GENERATOR=make`.
+Ninja is used by default as the build generator, but you can change it to Make by specifying `GENERATOR=make`, (you should not change it unless you do not have Ninja installed).
 
 ```
 make build

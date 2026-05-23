@@ -17,10 +17,11 @@ if (mode eq "mdp") {
     # ----------------------------------------------------
     set output "mdp_convergence.png"
     
-    set title "Value Iteration Convergence Profile" font "Arial-Bold,14"
+    set title "Value Iteration Convergence Profile\n(Multi-Field Tracking)" font "Arial-Bold,14"
     set xlabel "Iterations" font "Arial-Bold,12"
-    set ylabel "Maximum Utility Delta (Log Scale)" font "Arial-Bold,12"
+    set ylabel "Absolute Value Iteration Delta (Δ Utility, Log Scale)" font "Arial-Bold,12"
     
+    # --- LOG-Y AXIS CONFIGURATION (Linear X for Iterations) ---
     set logscale y 10
     set format y "10^{%L}"
     
@@ -29,8 +30,14 @@ if (mode eq "mdp") {
     set tics nomirror
     set key top right box lt 1 lc rgb '#bbbbbb' spacing 1.3 opaque
 
-    # MDP data has no headers, just (Iteration, Delta)
-    plot "convergence.dat" using 1:2 with lines linewidth 2 lc rgb "blue" title "Max Δ Utility"
+    # Read column count dynamically
+    stats "convergence.dat" nooutput
+    total_columns = STATS_columns
+
+    # Plot loop: slices strings like "D(1,1)" into pure coordinate layout "(1,1)"
+    plot for [col=2:total_columns] "convergence.dat" using 1:col \
+         with lines linewidth 2 \
+         title sprintf("(%s", columnheader(col)[3:strlen(columnheader(col))])
 
 } else {
     # ----------------------------------------------------

@@ -81,9 +81,26 @@ calculate_policies(
     double delta;
     uint iteration = 0;
 
+    if (log_stream) {
+        *log_stream << "#Iteration";
+        for (int y = 1; y <= config.height; ++y) {
+            for (int x = 1; x <= config.width; ++x) {
+                auto state = world.getState(x, y);
+                if (!state || state->type == EState::Terminal || state->type == EState::Forbidden)
+                    continue;
+                *log_stream << "\tD(" << x << "," << y << ")";
+            }
+        }
+        *log_stream << "\n";
+    }
+
     do {
         delta = 0.0;
         GridWorld next_world = world;
+
+        if (log_stream) {
+            *log_stream << iteration;
+        }
 
         for (int y = 1; y <= config.height; ++y) {
             for (int x = 1; x <= config.width; ++x) {
@@ -106,7 +123,12 @@ calculate_policies(
                 next_state->utility = state->reward + config.gamma.value() * max_val;
                 next_state->policy = best_action;
 
-                delta = std::max(delta, std::abs(next_state->utility - state->utility));
+                double current_delta = std::abs(next_state->utility - state->utility);
+                delta = std::max(delta, current_delta);
+
+                if (log_stream) {
+                    *log_stream << "\t" << current_delta;
+                }
             }
         }
         world = next_world;
