@@ -4,3 +4,6 @@ convergence.dat
 
 qlearning_convergence.dat
 qlearning_convergence.png
+mdp_convergence.dat
+mdp_convergence.png
+

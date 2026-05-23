@@ -87,4 +87,95 @@ gnuplot -c plot_convergence.gp ql
 
 ## Appendix: Extreme Scale Benchmarks
 
-Note: The test that separates the boys from the men.
+_Not really necessary in order to run programs, just interesting observations._
+
+Known-model approach for reference:
+```
+~/P/s/a/project4 (main|+1) $ build/mdp_program data/world0.txt
+Author: Bartosz Ksel (275472)
+Value Iteration converged in 22 iterations.
+
+Policy:
++---+---+---+---+
+| > | > | > | T |
++---+---+---+---+
+| ^ | F | ^ | T |
++---+---+---+---+
+| ^ | < | < | < |
++---+---+---+---+
+
+Utilities:
++----------+----------+----------+----------+
+|   0.8116 |   0.8678 |   0.9178 |   1.0000 |
++----------+----------+----------+----------+
+|   0.7616 |    F     |   0.6603 |  -1.0000 |
++----------+----------+----------+----------+
+|   0.7053 |   0.6553 |   0.6114 |   0.3878 |
++----------+----------+----------+----------+
+```
+
+```
+bksel@panamint:~/stopien2/aiml/aiml-project4-markov-decision-problem
+$ time MDP_TOTAL_TRIALS=10000000000 ./build/qlearning_program data/world0.txt 
+Author: Bartosz Ksel (275472)
+Starting Q-Learning Experiment:
+  Threads: 64
+  Epochs: 100
+  Total Trials: 10000000000
+
+Running epoch (100/100)...
+High-Speed Q-Learning completed! Data written to qlearning_convergence.dat
+
+Utilities:
++----------+----------+----------+----------+
+|   0.8113 |   0.8678 |   0.9178 |   1.0000 |
++----------+----------+----------+----------+
+|   0.7608 |   0.0000 |   0.6603 |  -1.0000 |
++----------+----------+----------+----------+
+|   0.7025 |   0.6492 |   0.6040 |   0.3620 |
++----------+----------+----------+----------+
+
+Policy:
++---+---+---+---+
+| > | > | > | T |
++---+---+---+---+
+| ^ | * | ^ | T |
++---+---+---+---+
+| ^ | < | < | < |
++---+---+---+---+
+
+Q-Values (1 decimal place):
++---------------+---------------+---------------+---------------+
+|    ^  0.8     |    ^  0.9     |    ^  0.9     |               |
+| < 0.8   > 0.9 | < 0.8   > 0.9 | < 0.9   > 1.0 |     T  1.0    |
+|    v  0.8     |    v  0.9     |    v  0.7     |               |
++---------------+---------------+---------------+---------------+
+|    ^  0.8     |               |    ^  0.7     |               |
+| < 0.8   > 0.8 |       F       | < 0.7   >-0.6 |     T -1.0    |
+|    v  0.7     |               |    v  0.4     |               |
++---------------+---------------+---------------+---------------+
+|    ^  0.7     |    ^  0.6     |    ^  0.6     |    ^ -0.7     |
+| < 0.7   > 0.7 | < 0.7   > 0.6 | < 0.6   > 0.4 | < 0.4   > 0.2 |
+|    v  0.7     |    v  0.6     |    v  0.6     |    v  0.3     |
++---------------+---------------+---------------+---------------+
+
+real	1m17.106s
+user	67m45.242s
+sys	0m0.672s
+```
+Note, practical gain: $\frac{(67×60)+45}{60+17} \approx 52.79 $ 
+
+Theoretical gain: $64$ 
+
+CPU utilization: $52.79 / 64 = 82.49% $
+
+### Raw Throughput:
+
+- Wall-clock Processing Speed: $\frac{10,000,000,000}{77.106} \approx \textbf{129.69 Million trials/sec}$
+
+- Per-Core Processing Speed: $\frac{10,000,000,000}{4065.242} \approx \textbf{2.46 Million trials/sec}$
+
+### Overcoming the Value Trap
+
+An interesting behavioral observation derived from these extreme-scale benchmarks is the agent's ability to eventually overcome local optima (or "value traps") at specific fields. With smaller trial counts (e.g., millions), the $\epsilon$-greedy exploration strategy often fails to adequately explore deep, low-probability trajectories, causing the agent to settle for a suboptimal policy in hard-to-reach states. However, when scaling $N$ beyond $10,000,000,000$, the law of large numbers takes over. The sheer brute-force volume of random exploration guarantees that even the most statistically improbable state-action sequences are traversed enough times. This allows the $1/N$ learning rate to definitively pull the Q-values out of local minima, forcing convergence toward the true globally optimal paths.
+
