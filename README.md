@@ -1,79 +1,90 @@
-# AIML Project 4 -- Markov's Decision problem
+# AIML Project 4 -- Markov's Decision Problem
 
+This project implements solvers for discrete Markov Decision Problems (MDP) using direct methods (Value Iteration) and Reinforcement Learning (Q-Learning).
 
-Test, który odróżnia dzieci od mężczyzn:
-```
-MDP_TOTAL_TRIALS=10000000000 time build/qlearning_program data/world0.txt
-```
+## Building the Project
 
-
-Biggest run on panamint:
-```
-bksel@panamint:~/stopien2/aiml/project4
-$ time MDP_TOTAL_TRIALS=100000000000 ./build/qlearning_program data/world0.txt 
-Author: Bartosz Ksel (275472)
-Starting Q-Learning Experiment:
-  Threads: 64
-  Epochs: 100
-  Total Trials: 100000000000
-
-Running epoch (100/100)...
-High-Speed Q-Learning completed! Data written to qlearning_convergence.dat
-
-Utilities:
-+----------+----------+----------+----------+
-|   0.8508 |   0.9077 |   0.9578 |   1.0000 |
-+----------+----------+----------+----------+
-|   0.7997 |    F     |   0.7001 |  -1.0000 |
-+----------+----------+----------+----------+
-|   0.7393 |   0.6834 |   0.6314 |   0.3892 |
-+----------+----------+----------+----------+
-
-Policy:
-+---+---+---+---+
-| > | > | > | T |
-+---+---+---+---+
-| ^ | F | ^ | T |
-+---+---+---+---+
-| ^ | < | < | < |
-+---+---+---+---+
-
-real	10m28.603s
-user	583m22.071s
-sys	0m4.646s
+Ninja is used by default as the build generator, but you can change it to Make by specifying `GENERATOR=make`.
 
 ```
+make build
+# Or to explicitly use Make instead of Ninja:
+make build GENERATOR=make
+```
 
+_NOTE_:
+There is a warning during compilation: `project4/inc/qlearning/world.hh:30:21: warning: use of ‘std::hardware_destructive_interference_size’ [-Winterference-size]`, it is caused by defining alignment that is not portable, you should not worry about it as programs are compiled with `-march-native` flag either way.
 
-bksel@panamint:~/stopien2/aiml/project4
-$ time MDP_NUM_THREADS=48 MDP_TOTAL_TRIALS=10000000000 ./build/qlearning_program data/world0.txt 
-Author: Bartosz Ksel (275472)
-Starting Q-Learning Experiment:
-  Threads: 48
-  Epochs: 100
-  Total Trials: 10000000000
+## Executables and Usage
 
-Running epoch (100/100)...
-High-Speed Q-Learning completed! Data written to qlearning_convergence.dat
+The build process produces two executables: mdp_program (Part 1) and qlearning_program (Part 2). Both programs share the same command-line interface format.
 
-Utilities:
-+----------+----------+----------+----------+
-|   0.8113 |   0.8678 |   0.9178 |   1.0000 |
-+----------+----------+----------+----------+
-|   0.7609 |    F     |   0.6602 |  -1.0000 |
-+----------+----------+----------+----------+
-|   0.7030 |   0.6504 |   0.6059 |   0.3601 |
-+----------+----------+----------+----------+
+### Command-Line Arguments (Flags)
+```
+./build/<program_name> <filename> [gamma] [epsilon]
+```
 
-Policy:
-+---+---+---+---+
-| > | > | > | T |
-+---+---+---+---+
-| ^ | F | ^ | T |
-+---+---+---+---+
-| ^ | < | < | < |
-+---+---+---+---+
+- `filename` (Required): Path to the world configuration file (e.g., `data/world0.txt`).
 
-real	1m25.764s
-user	59m4.985s
-sys	0m1.697s
+- `gamma` (Optional): Discounting factor. Overrides the G parameter in the data file. Defaults to 1.0 if missing entirely.
+
+- `epsilon` (Optional): Exploration parameter for the Q-learning agent. Overrides the E parameter in the data file. Defaults to 0.05 if missing entirely.
+
+_Example execution_:
+```
+./build/qlearning_program data/world1.txt 0.99 0.25
+```
+
+### Environmental Variables (Q-Learning)
+
+The Q-learning simulator (`qlearning_program`) is heavily multi-threaded. You can control the concurrency and training volume using the following environment variables. If omitted, the program dynamically calculates sensible defaults based on your hardware.
+
+- `MDP_NUM_THREADS`
+
+  - Description: Target number of concurrent worker threads.
+
+  - Default: Automatically scales to `std::thread::hardware_concurrency()` (or 4 if undetected), and is clamped dynamically based on `MDP_TOTAL_TRIALS` to ensure each thread has enough work.
+
+- `MDP_EPOCHS`
+
+  - Description: Number of synchronization points (barrier drops) where threads merge their local Q-tables using exact federated averaging.
+
+  - Default: `100`
+
+- `MDP_TOTAL_TRIALS`
+
+  - Description: The absolute total number of training episodes to simulate distributed across all threads.
+
+  - Default: `1000000`
+
+_Example execution with custom environment configuration_:
+
+```
+MDP_NUM_THREADS=48 MDP_TOTAL_TRIALS=10000000000 ./build/qlearning_program data/world0.txt
+```
+
+## Generating Convergence Graphs
+
+A unified Gnuplot script (`plot_convergence.gp`) is provided to visualize the algorithmic convergence of both programs. Make sure to run the respective program first to generate the necessary data files (convergence.dat or `qlearning_convergence.dat`).
+
+The script takes a command-line argument to determine the plotting mode:
+
+### For Part 1 (Value Iteration MDP):
+
+```
+gnuplot -c plot_convergence.gp mdp
+```
+
+(This produces `mdp_convergence.png` plotting iterations vs. max utility delta)
+
+### For Part 2 (Q-Learning RL):
+
+```
+gnuplot -c plot_convergence.gp ql
+```
+
+(This produces `qlearning_convergence.png` mapping total distributed trials vs. delta on a multi-field log-log scale)
+
+## Appendix: Extreme Scale Benchmarks
+
+Note: The test that separates the boys from the men.
